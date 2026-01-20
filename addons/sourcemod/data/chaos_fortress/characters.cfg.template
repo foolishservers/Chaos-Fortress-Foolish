@@ -16,33 +16,40 @@
 	//The name of this character pack.
 	"DPS"
 	{
-		"1"		"sb_christian_brutal_sniper"
-		"2"		"sb_kranz"
+		"1"		"christian_brutal_sniper"
+		"2"		"kranz"
+		"3"		"mercenary"
+		"4"		"spookmaster"
 	}
 	
 	"Tank"
 	{
-		"1"		"sb_count_heavnich"
-		"2"		"sb_demopan"
-		"3"		"sb_law"
-		"4"		"sb_sensal"
+		"1"		"count_heavnich"
+		"2"		"demopan"
+		"3"		"law"
+		"4"		"sensal"
 	}
 	
 	"Support"
 	{
-		"1"		"sb_taufuch"
-		"2"		"sb_zeina"
+		"1"		"doktor_medick"
+		"2"		"gadgeteer"
+		"3"		"skullface"
+		"4"		"taufuch"
+		"5"		"zeina"
 	}
 
 	"Assassin"
 	{
-		"1"		"sb_herlven"
+		"1"		"gentlespy"
+		"2"		"herlven"
+		"3"		"orbital_sniper"
 	}
 
 	//The "Admin" section is automatically restricted to admins only.
 	"Admin"
 	{
-		//"1"		"kholdroz"
+		"1"		"kholdroz"
 	}
 
 	//All character packs which you want players to download files for, but are not currently enabled.
