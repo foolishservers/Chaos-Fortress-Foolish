@@ -661,7 +661,7 @@ public void Yoink_Activate(int client, char abilityName[255])
 		b = 255;
 	}
 
-	i_YoinkBeam[client] = EntIndexToEntRef(CreateEnvBeam(client, target, startPos, endPos, _, _, start, end, r, 120, b, 255, "sprites/laser.vmt"));
+	i_YoinkBeam[client] = EntIndexToEntRef(CreateEnvBeam(client, target, startPos, endPos, _, _, start, end, r, 120, b, 255, "materials/sprites/laser.vmt"));
 	if (IsValidEntity(start))
 		i_YoinkStartEnt[client] = EntIndexToEntRef(start);
 	if (IsValidEntity(end))
