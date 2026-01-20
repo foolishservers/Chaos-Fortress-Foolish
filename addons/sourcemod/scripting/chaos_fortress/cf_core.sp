@@ -640,6 +640,11 @@ public Native_CF_GetRoundState(Handle plugin, int numParams)
 		return 0;
 
 	RoundState state = GameRules_GetRoundState();
+
+    bool isArena = GameRules_GetProp("m_nGameType") == 4;
+    if (isArena && (state == RoundState_Stalemate))
+        return 1;
+
 	if (state == RoundState_RoundRunning || state == RoundState_Bonus)
 		return 1;
 	else if (state == RoundState_GameOver || state == RoundState_TeamWin || state == RoundState_Restart || state == RoundState_Stalemate)
@@ -724,7 +729,7 @@ public Native_CF_IsEntityInSpawn(Handle plugin, int numParams)
 	int entity = GetNativeCell(1);
 	int team = GetNativeCell(2);
 	
-	return b_InSpawn[entity][team];
+	return GameRules_GetProp("m_nGameType") == 4 ? false : b_InSpawn[entity][team];
 } 
 
 public Action RingTouch(int ring, int entity)
