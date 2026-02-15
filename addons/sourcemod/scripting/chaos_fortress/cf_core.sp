@@ -502,6 +502,61 @@ public int CF_GetCharacterLimit(char conf[255])
 	return limit;
 }
 
+public int CF_GetRoleLimit(char role[255], int client)
+{
+	GameRules = new ConfigMap("data/chaos_fortress/game_rules.cfg");
+
+	char path[255];
+	Format(path, sizeof(path), "game_rules.role_limits.%s", role);
+
+	ConfigMap subsection = GameRules.GetSection(path);
+	if (subsection == null)
+	{
+		DeleteCfg(GameRules);
+		return -1;
+	}
+
+	int req = GetIntFromCFGMap(subsection, "requirement", 0);
+
+	bool roundDown = GetBoolFromCFGMap(subsection, "round_down", false);
+
+	int min = GetIntFromCFGMap(subsection, "min_allowed", 1);
+	if (min < 0)
+		min = 0;
+
+	int max = GetIntFromCFGMap(subsection, "max_allowed", -1);
+
+	DeleteCfg(GameRules);
+
+	if (req <= 0)
+		return -1;
+
+	int allowed;
+
+	int numAllies = 0;
+	for (int i = 1; i <= MaxClients; i++)
+	{
+		if (!IsValidClient(i))
+			continue;
+
+		//We deliberately do not filter out the user, because we want to include them in the total number of players on their team.
+		if (TF2_GetClientTeam(i) == TF2_GetClientTeam(client))
+			numAllies++;
+	}
+
+	if (roundDown)
+		allowed = RoundToFloor(float(numAllies) / float(req));
+	else
+		allowed = RoundFloat(float(numAllies) / float(req));
+
+	if (allowed < min)
+		allowed = min;
+	if (allowed > max && max >= 0)
+		allowed = max;
+
+	return allowed;
+}
+
 public Action CF_PrintMessage(Handle timer, DataPack pack)
 {
 	ResetPack(pack);

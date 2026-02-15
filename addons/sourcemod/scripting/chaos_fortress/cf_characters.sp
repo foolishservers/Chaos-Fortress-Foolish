@@ -1585,7 +1585,29 @@ public void CFC_OnEntityDestroyed(int entity)
 	}
  }
  
-public int CF_GetNumPlayers(char conf[255], int client)
+bool CF_IsCharacterAtLimit(char conf[255], int client, bool &wasRoleLimit = false, int &limit = 0)
+{
+	limit = CF_GetCharacterLimit(conf);
+	bool blocked = CF_GetNumPlayers(conf, client) >= limit && limit > 0;
+
+	if (blocked)
+	{
+		wasRoleLimit = false;
+		return true;
+	}
+
+	char role[255];
+	CF_GetRoleFromConfig(conf, role);
+	limit = CF_GetRoleLimit(role, client);
+	blocked = CF_GetNumPlayers(role, client, true) >= limit && limit >= 0;
+
+	if (blocked)
+		wasRoleLimit = true;
+
+	return blocked;
+}
+
+int CF_GetNumPlayers(char conf[255], int client, bool checkRole = false)
 {
 	int num = 0;
 	for (int i = 1; i <= MaxClients; i++)
@@ -1594,16 +1616,52 @@ public int CF_GetNumPlayers(char conf[255], int client)
 			continue;
 
 		char myConf[255];
-		if (!IsPlayerAlive(i))
-			GetClientCookie(i, c_DesiredCharacter, myConf, sizeof(myConf));
-		else
-			CF_GetPlayerConfig(i, myConf, 255);
+
+		if (checkRole)
+		{
+			char role[255];
 			
-		if (StrEqual(conf, myConf))
-			num++;
+			if (IsPlayerAlive(i))
+				CF_GetCharacterArchetype(i, role, 255);
+			else
+			{
+				GetClientCookie(i, c_DesiredCharacter, myConf, sizeof(myConf));
+				CF_GetRoleFromConfig(myConf, role);
+			}
+
+			if (StrEqual(conf, role))
+				num++;
+		}
+		else
+		{
+			if (!IsPlayerAlive(i))
+				GetClientCookie(i, c_DesiredCharacter, myConf, sizeof(myConf));
+			else
+				CF_GetPlayerConfig(i, myConf, 255);
+				
+			if (StrEqual(conf, myConf))
+				num++;
+		}
 	}
 
 	return num;
+}
+
+void CF_GetRoleFromConfig(char conf[255], char output[255])
+{
+	char path[255];
+
+	if (StrContains(conf, "configs/") == -1)
+		Format(path, sizeof(path), "configs/chaos_fortress/%s.cfg", conf);
+	else
+		path = conf;
+
+	ConfigMap charSec = new ConfigMap(path);
+	if (charSec != null)
+	{
+		charSec.Get("character.menu_display.role", output, 255);
+		DeleteCfg(charSec);
+	}
 }
 
 void CF_LoadSpecificCharacter(char path[255], bool JustDownload, bool admin = false)
@@ -2078,11 +2136,16 @@ int i_NumItemsInInfoMenu[MAXPLAYERS + 1] = { 0, ... };
 	i_NumItemsInInfoMenu[client] = 0;
  	
  	Format(name, sizeof(name), "Spawn As %s", name);
-	int limit = CF_GetCharacterLimit(config);
-	bool blocked = CF_GetNumPlayers(config, client) >= limit && limit > 0;
+	bool roleCap;
+	int limit;
+	bool blocked = CF_IsCharacterAtLimit(config, client, roleCap, limit);
 	if (blocked)
 	{
-		Format(name, sizeof(name), "%s (MAX: %i)", name, limit);
+		if (roleCap)
+			Format(name, sizeof(name), "%s (''%s'' LIMIT REACHED: %i)", name, role, limit);
+		else
+			Format(name, sizeof(name), "%s (MAX: %i)", name, limit);
+
  		CFC_AddItemToInfoMenu(client, menu, "Select", name, ITEMDRAW_DISABLED);
 	}
 	else
@@ -2496,18 +2559,27 @@ public void CFC_NoLongerNeedsHelp(int client)
 		char originalConf[255];
 		originalConf = conf;
 
-		int limit = CF_GetCharacterLimit(conf);
-		bool blocked = CF_GetNumPlayers(conf, client) >= limit && limit > 0;
+		bool roleLimit;
+		int limit;
+		bool blocked = CF_IsCharacterAtLimit(conf, client, roleLimit, limit);
 		if (blocked)
 		{
+			char role[255];
+			CF_GetRoleFromConfig(conf, role);
+
 			for (int i = 0; i < GetArraySize(CF_Characters_Configs) && blocked; i++)
 			{
 				GetArrayString(CF_Characters_Configs, i, conf, sizeof(conf));
-				limit = CF_GetCharacterLimit(conf);
-				blocked = CF_GetNumPlayers(conf, client) >= limit && limit > 0;
+
+				blocked = CF_IsCharacterAtLimit(conf, client);
 				if (!blocked)
 				{
-					CPrintToChat(client, "{indigo}[Chaos Fortress]{default} Your chosen character was overridden due to the character limit ({yellow}%i{default}).", CF_GetCharacterLimit(originalConf));
+					if (roleLimit)
+					{
+						CPrintToChat(client, "{indigo}[Chaos Fortress]{default} Your chosen character was overridden due to the ''%s'' limit ({yellow}%i{default}).", role, limit);
+					}
+					else
+						CPrintToChat(client, "{indigo}[Chaos Fortress]{default} Your chosen character was overridden due to the character limit ({yellow}%i{default}).", limit);
 				}
 			}
 
