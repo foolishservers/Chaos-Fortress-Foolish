@@ -225,13 +225,14 @@ public Action Stabs_DoMeleeStunSequence(Handle timely, DataPack pack)
 
 public void CF_OnCheckCanBackstab(int attacker, int victim, bool &forceStab, bool &result)
 {
-	if (!result)
+	float gt = GetGameTime();
+
+	if (!result && gt > f_MontageEndTime[attacker])
 		return;
 		
 	if (!b_StabsEnabled[attacker] || IsABuilding(victim) || !CF_IsValidTarget(victim, grabEnemyTeam(attacker)))
 		return;
 
-	float gt = GetGameTime();
 	if (gt <= f_MontageEndTime[attacker])
 		forceStab = true;
 
