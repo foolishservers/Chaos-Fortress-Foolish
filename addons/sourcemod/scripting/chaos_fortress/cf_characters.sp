@@ -1612,7 +1612,7 @@ int CF_GetNumPlayers(char conf[255], int client, bool checkRole = false)
 	int num = 0;
 	for (int i = 1; i <= MaxClients; i++)
 	{
-		if (!IsValidClient(i) || !IsClientInGame(i) || i == client || IsValidMulti(i, false, _, true, grabEnemyTeam(client)))
+		if (!IsValidClient(i) || !IsClientInGame(i) || i == client || TF2_GetClientTeam(i) != TF2_GetClientTeam(client))
 			continue;
 
 		char myConf[255];
