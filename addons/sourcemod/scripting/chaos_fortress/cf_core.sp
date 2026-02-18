@@ -533,21 +533,17 @@ public int CF_GetRoleLimit(char role[255], int client)
 
 	int allowed;
 
-	int numAllies = 0;
+	int numPlayers = 0;
 	for (int i = 1; i <= MaxClients; i++)
 	{
-		if (!IsValidClient(i))
-			continue;
-
-		//We deliberately do not filter out the user, because we want to include them in the total number of players on their team.
-		if (TF2_GetClientTeam(i) == TF2_GetClientTeam(client))
-			numAllies++;
+		if (IsValidClient(i) && (TF2_GetClientTeam(i) == TFTeam_Red || TF2_GetClientTeam(i) == TFTeam_Blue))
+			numPlayers++;
 	}
 
 	if (roundDown)
-		allowed = RoundToFloor(float(numAllies) / float(req));
+		allowed = RoundToFloor(float(numPlayers) / float(req));
 	else
-		allowed = RoundFloat(float(numAllies) / float(req));
+		allowed = RoundFloat(float(numPlayers) / float(req));
 
 	if (allowed < min)
 		allowed = min;
