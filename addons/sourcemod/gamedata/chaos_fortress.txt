@@ -202,6 +202,39 @@
 				"return"	"void"
 				"this"		"entity"
 			}
+			"CBaseGrenade::Explode"
+			{
+				"offset"	"CBaseGrenade::Explode"
+				"hooktype"	"entity"
+				"return"	"void"
+				"this"		"entity"
+				"arguments"
+				{
+					"pTrace"
+					{
+						"type"	"objectptr"
+					}
+					"bitsDamageType"
+					{
+						"type"	"int"
+					}
+				}
+			}
+			"CTFGrenadePipebombProjectile::PipebombTouch" 
+			{
+				// virtual void PipebombTouch( CBaseEntity *pOther )
+				"offset" 		"CTFGrenadePipebombProjectile::PipebombTouch"
+				"hooktype" 		"entity"
+				"return" 		"void"
+				"this" 			"entity"
+				"arguments"
+				{
+					"other"
+					{
+						"type" "cbaseentity"
+					}
+				}
+			}
 		}
 		"Offsets"
 		{
@@ -236,6 +269,16 @@
 			{
 				"linux"		"119"
 				"windows"	"118"
+			}
+			"CBaseGrenade::Explode"
+			{
+				"linux"		"237"
+				"windows"	"236"
+			}
+			"CTFGrenadePipebombProjectile::PipebombTouch" 
+			{
+				"windows" 	"261"
+				"linux" 	"262"
 			}
 		}
 	}

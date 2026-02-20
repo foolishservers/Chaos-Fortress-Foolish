@@ -6,6 +6,7 @@
 #define BOMBASTARD		"cf_bombastard"
 #define TRIP			"bombastard_tripmines"
 #define STRIKE			"bombastard_ignition_strike"
+#define CLUSTER			"bombastard_cluster"
 
 #define SOUND_GENERIC_EXPLOSION	")weapons/explode1.wav"
 #define SOUND_MINE_ARMED		")weapons/medi_shield_burn_03.wav"
@@ -13,12 +14,16 @@
 #define SOUND_STRIKE_SWING		")misc/halloween/strongman_fast_whoosh_01.wav"
 #define SOUND_STRIKE_HIT		")weapons/cow_mangler_explode.wav"
 #define SOUND_STRIKE_HIT_2		")weapons/halloween_boss/knight_axe_hit.wav"
+#define SOUND_CLUSTER_LAUNCHED	")misc/halloween/strongman_fast_whoosh_01.wav"
+#define SOUND_CLUSTER_BLAST		")weapons/bumper_car_hit_hard.wav"
 
 #define PARTICLE_GENERIC_EXPLOSION	"ExplosionCore_MidAir"
 #define PARTICLE_IG_COMBO_1			"mvm_pow_bam"
 #define PARTICLE_IG_COMBO_2			"mvm_pow_crack"
 #define PARTICLE_IG_COMBO_3			"mvm_pow_caber"
 #define PARTICLE_IG_COMBO_4			"mvm_pow_crit"
+
+#define MODEL_CLUSTER_BOMB		"models/weapons/w_models/w_cannonball.mdl"
 
 int Model_TripBeam, Model_TripHalo;
 
@@ -30,6 +35,10 @@ public void OnMapStart()
 	PrecacheSound(SOUND_STRIKE_SWING);
 	PrecacheSound(SOUND_STRIKE_HIT);
 	PrecacheSound(SOUND_STRIKE_HIT_2);
+	PrecacheSound(SOUND_CLUSTER_LAUNCHED);
+	PrecacheSound(SOUND_CLUSTER_BLAST);
+
+	PrecacheModel(MODEL_CLUSTER_BOMB);
 
 	Model_TripHalo = PrecacheModel("materials/sprites/glow02.vmt");
 	Model_TripBeam = PrecacheModel("materials/sprites/laser.vmt");
@@ -42,8 +51,20 @@ static char VFX_IG_COMBO[][] = {
 	PARTICLE_IG_COMBO_4
 };
 
+DynamicHook g_DHookGrenadeExplode;
+Handle g_DHookPillCollide;
+
 public void OnPluginStart()
 {
+	GameData gd = LoadGameConfigFile("chaos_fortress");
+
+	g_DHookGrenadeExplode = DHook_CreateVirtual(gd, "CBaseGrenade::Explode");
+	if(!g_DHookGrenadeExplode)
+		SetFailState("[Gamedata] Could not find CBaseGrenade::Explode");
+
+	g_DHookPillCollide = CheckedDHookCreateFromConf(gd, "CTFGrenadePipebombProjectile::PipebombTouch");
+
+	delete gd;
 }
 
 bool b_TripEnabled[MAXPLAYERS + 1] = { false, ... };
@@ -295,6 +316,7 @@ public Action Strike_UnblockWeaponSwitch(Handle timer, int id)
 	{
 		SetForceButtonState(client, false, IN_ATTACK);
 		SDKUnhook(client, SDKHook_WeaponCanSwitchTo, Strike_BlockWeaponSwitch);
+		f_StrikeSwingTime[client] = 0.0;
 	}
 
 	return Plugin_Continue;
@@ -306,6 +328,67 @@ public Action Strike_BlockWeaponSwitch(int client, int weapon)
 		return Plugin_Handled;
 
 	return Plugin_Continue;
+}
+
+float f_ClusterDMG[2049] = { 0.0, ... };
+float f_ClusterRadius[2049] = { 0.0, ... };
+float f_ClusterVel[2049] = { 0.0, ... };
+float f_ClusterAng[2049] = { 0.0, ... };
+
+int i_ClusterCount[2049] = { 0, ... };
+
+public void Cluster_Activate(int client, char ability[255])
+{
+	float damage = CF_GetArgF(client, BOMBASTARD, ability, "damage", 200.0);
+	float radius = CF_GetArgF(client, BOMBASTARD, ability, "radius", 160.0);
+	int bigboy = Core_SpawnGrenade(client, damage, radius, false);
+	if (IsValidEntity(bigboy))
+	{
+		SetEntityModel(bigboy, MODEL_CLUSTER_BOMB);
+		DispatchKeyValue(bigboy, "modelscale", "1.5");
+
+		float velocity = CF_GetArgF(client, BOMBASTARD, ability, "throw_velocity", 900.0);
+		float upper = CF_GetArgF(client, BOMBASTARD, ability, "throw_uppervel", 200.0);
+
+		float pos[3], ang[3], spawnPos[3], vel[3];
+		GetClientEyePosition(client, pos);
+		GetClientEyeAngles(client, ang);
+		GetPointInDirection(pos, ang, 20.0, spawnPos);
+		CF_HasLineOfSight(pos, spawnPos, _, spawnPos);
+
+		GetVelocityInDirection(ang, velocity, vel);
+		vel[2] += upper;
+
+		TeleportEntity(bigboy, pos, ang, vel);
+
+		EmitSoundToAll(SOUND_CLUSTER_LAUNCHED);
+
+		g_DHookGrenadeExplode.HookEntity(Hook_Pre, bigboy, Cluster_Explode);
+
+		i_ClusterCount[bigboy] = CF_GetArgI(client, BOMBASTARD, ability, "mini_count", 6);
+		f_ClusterDMG[bigboy] = CF_GetArgF(client, BOMBASTARD, ability, "mini_damage", 60.0);
+		f_ClusterRadius[bigboy] = CF_GetArgF(client, BOMBASTARD, ability, "mini_radius", 160.0);
+		f_ClusterAng[bigboy] = CF_GetArgF(client, BOMBASTARD, ability, "mini_angle", -30.0);
+		f_ClusterVel[bigboy] = CF_GetArgF(client, BOMBASTARD, ability, "mini_velocity", 400.0);
+
+		CF_ForceGesture(client);
+		CF_SimulateSpellbookCast(client);
+	}
+}
+
+public MRESReturn Cluster_Explode(int entity)
+{
+	int owner = GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity");
+	if (!IsValidClient(owner))
+		return MRES_Ignored;
+
+	float pos[3];
+	GetEntPropVector(entity, Prop_Data, "m_vecAbsOrigin", pos);
+
+	Core_ShootGrenadeCluster(owner, f_ClusterDMG[entity], f_ClusterRadius[entity], f_ClusterVel[entity], f_ClusterAng[entity], true, i_ClusterCount[entity], MODEL_CLUSTER_BOMB, 0.65, pos);
+	EmitSoundToAll(SOUND_CLUSTER_BLAST, entity);
+
+	return MRES_Ignored;
 }
 
 public Action CF_OnTakeDamageAlive_Bonus(int victim, int &attacker, int &inflictor, float &damage, int &damagetype, int &weapon,
@@ -374,6 +457,7 @@ public void Core_KnockAndMark(int victim, int attacker, float ang[3], float kb, 
 	{
 		f_StrikeMarkedMult[victim] = mult;
 		b_StrikeMarked[victim] = true;
+		AttachAura(victim, TF2_GetClientTeam(victim) == TFTeam_Red ? "utaunt_multicurse_teamcolor_red" : "utaunt_multicurse_teamcolor_blue");
 
 		CreateTimer(0.1, Core_CheckGrounded, GetClientUserId(victim), TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
 	}
@@ -388,10 +472,67 @@ public Action Core_CheckGrounded(Handle timer, int id)
 	if (GetEntityFlags(client) & FL_ONGROUND != 0 || GetEntProp(client, Prop_Send, "m_nWaterLevel") >= 1)
 	{
 		b_StrikeMarked[client] = false;
+		RemoveAura(client, TF2_GetClientTeam(client) == TFTeam_Red ? "utaunt_multicurse_teamcolor_red" : "utaunt_multicurse_teamcolor_blue");
 		return Plugin_Stop;
 	}
 	
 	return Plugin_Continue;
+}
+
+int Core_SpawnGrenade(int client, float damage, float radius, bool blockExplosionOnCollide = true)
+{
+	int grenade = CreateEntityByName("tf_projectile_pipe");
+	if (IsValidEntity(grenade))
+	{
+		int team = GetClientTeam(client);
+		SetEntPropEnt(grenade, Prop_Send, "m_hOwnerEntity", client);
+		SetEntProp(grenade,    Prop_Send, "m_bCritical", 0);
+		SetEntProp(grenade,    Prop_Send, "m_iTeamNum",     team, 1);
+		SetEntPropFloat(grenade, Prop_Send, "m_flDamage", damage);
+		SetEntPropFloat(grenade, Prop_Send, "m_DmgRadius", radius);
+		int offs = FindSendPropInfo("CTFGrenadePipebombProjectile", "m_bDefensiveBomb") - 4;
+		SetEntDataFloat(grenade, offs, damage);
+		SetEntData(grenade, FindSendPropInfo("CTFGrenadePipebombProjectile", "m_nSkin"), (team-2), 1, true);
+		
+		DispatchSpawn(grenade);
+
+		if (blockExplosionOnCollide)
+			DHookEntity(g_DHookPillCollide, false, grenade, _, Core_DoNotExplodeOnCollide);
+
+		return grenade;
+	}
+
+	return -1;
+}
+
+static MRESReturn Core_DoNotExplodeOnCollide(int self, Handle params) 
+{
+	return MRES_Supercede;
+}
+
+public void Core_ShootGrenadeCluster(int owner, float damage, float radius, float velocity, float shootAng, bool blockExplosionOnCollide, int numToSpawn, char model[255], float scale, float pos[3])
+{
+	float turnRate = 360.0 / float(numToSpawn);
+	float ang[3];
+	ang[0] = shootAng;
+
+	char scaleChar[255];
+	Format(scaleChar, sizeof(scaleChar), "%f", scale);
+
+	for (int i = 0; i < numToSpawn; i++)
+	{
+		ang[1] += turnRate;
+		int pipe = Core_SpawnGrenade(owner, damage, radius, blockExplosionOnCollide);
+		if (IsValidEntity(pipe))
+		{
+			SetEntityModel(pipe, model);
+			DispatchKeyValue(pipe, "modelscale", scaleChar);
+
+			float vel[3];
+			GetVelocityInDirection(ang, velocity, vel);
+			TeleportEntity(pipe, pos, ang, vel);
+		}
+	}
 }
 
 public void CF_OnCharacterCreated(int client)
@@ -407,10 +548,19 @@ public void CF_OnAbility(int client, char pluginName[255], char abilityName[255]
 
 	if (StrContains(abilityName, STRIKE) != -1)
 		Strike_Activate(client, abilityName);
+
+	if (StrContains(abilityName, CLUSTER) != -1)
+		Cluster_Activate(client, abilityName);
 }
 
 public Action CF_OnAbilityCheckCanUse(int client, char plugin[255], char ability[255], CF_AbilityType type, bool &result)
 {
+	if (GetGameTime() < f_StrikeSwingTime[client])
+	{
+		result = false;
+		return Plugin_Changed;
+	}
+
 	if (!StrEqual(plugin, BOMBASTARD))
 		return Plugin_Continue;
 
@@ -444,6 +594,7 @@ public void CF_OnCharacterRemoved(int client, CF_CharacterRemovalReason reason)
 	SetForceButtonState(client, false, IN_ATTACK);
 	f_StrikeSwingTime[client] = 0.0;
 	b_StrikeMarked[client] = false;
+	AttachAura(client, TF2_GetClientTeam(client) == TFTeam_Red ? "utaunt_multicurse_teamcolor_red" : "utaunt_multicurse_teamcolor_blue");
 }
 
 public void OnEntityCreated(int entity, const char[] classname)
