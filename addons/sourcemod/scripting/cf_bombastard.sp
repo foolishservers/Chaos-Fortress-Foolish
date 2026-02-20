@@ -564,7 +564,7 @@ public Action CF_OnAbilityCheckCanUse(int client, char plugin[255], char ability
 	if (!StrEqual(plugin, BOMBASTARD))
 		return Plugin_Continue;
 
-	if (StrContains(ability, STRIKE) != -1)
+	if (StrContains(ability, STRIKE) != -1 || StrContains(ability, CLUSTER) != -1)
 	{
 		int weapon = TF2_GetActiveWeapon(client);
 		if (!CanWeaponAttack(client, weapon))
