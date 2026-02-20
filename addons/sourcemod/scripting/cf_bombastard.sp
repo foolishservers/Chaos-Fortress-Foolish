@@ -371,8 +371,11 @@ public void Cluster_Activate(int client, char ability[255])
 		f_ClusterAng[bigboy] = CF_GetArgF(client, BOMBASTARD, ability, "mini_angle", -30.0);
 		f_ClusterVel[bigboy] = CF_GetArgF(client, BOMBASTARD, ability, "mini_velocity", 400.0);
 
-		CF_ForceGesture(client);
-		CF_SimulateSpellbookCast(client);
+		if (CF_GetArgI(client, BOMBASTARD, ability, "use_throw_anim", 1) > 0)
+		{
+			CF_ForceGesture(client);
+			CF_SimulateSpellbookCast(client);
+		}
 	}
 }
 
