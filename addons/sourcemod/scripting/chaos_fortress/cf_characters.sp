@@ -1356,6 +1356,7 @@ public void CFC_CreateAbility(int client, ConfigMap subsection, CF_AbilityType t
 	ability.i_MaxStocks = GetIntFromCFGMap(subsection, "max_stocks", 0);
 
 	ability.f_Cooldown = GetFloatFromCFGMap(subsection, "cooldown", 0.0);
+	
 	float startingCD = GetFloatFromCFGMap(subsection, "starting_cd", 0.0);
 	if (ability.i_MaxStocks > 0 && ability.i_MaxStocks <= ability.i_Stocks)
 		startingCD = 0.0;
