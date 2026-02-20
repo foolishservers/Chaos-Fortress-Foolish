@@ -386,7 +386,7 @@ public MRESReturn Cluster_Explode(int entity)
 	GetEntPropVector(entity, Prop_Data, "m_vecAbsOrigin", pos);
 
 	Core_ShootGrenadeCluster(owner, f_ClusterDMG[entity], f_ClusterRadius[entity], f_ClusterVel[entity], f_ClusterAng[entity], true, i_ClusterCount[entity], MODEL_CLUSTER_BOMB, 0.65, pos);
-	EmitSoundToAll(SOUND_CLUSTER_BLAST, entity);
+	EmitSoundToAll(SOUND_CLUSTER_BLAST, entity, _, 120);
 
 	return MRES_Ignored;
 }
