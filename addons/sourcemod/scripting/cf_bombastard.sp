@@ -7,6 +7,7 @@
 #define TRIP			"bombastard_tripmines"
 #define STRIKE			"bombastard_ignition_strike"
 #define CLUSTER			"bombastard_cluster"
+#define BANG			"bombastard_out_with_a_bang"
 
 #define SOUND_GENERIC_EXPLOSION	")weapons/explode1.wav"
 #define SOUND_MINE_ARMED		")weapons/medi_shield_burn_03.wav"
@@ -567,7 +568,7 @@ public Action CF_OnAbilityCheckCanUse(int client, char plugin[255], char ability
 	if (!StrEqual(plugin, BOMBASTARD))
 		return Plugin_Continue;
 
-	if (StrContains(ability, STRIKE) != -1 || StrContains(ability, CLUSTER) != -1)
+	if (StrContains(ability, STRIKE) != -1)
 	{
 		int weapon = TF2_GetActiveWeapon(client);
 		if (!CanWeaponAttack(client, weapon))
@@ -582,6 +583,25 @@ public Action CF_OnAbilityCheckCanUse(int client, char plugin[255], char ability
 
 public void My_Ability_Activate(int client, char abilityName[255])
 {
+}
+
+public Action CF_OnPlayerKilled_Pre(int &victim, int &inflictor, int &attacker, char weapon[255], char console[255], int &custom, int deadRinger, int &critType, int &damagebits)
+{
+	if (!CF_IsPlayerCharacter(victim) || !CF_HasAbility(victim, BOMBASTARD, BANG))
+		return Plugin_Continue;
+
+	int count = CF_GetArgI(victim, BOMBASTARD, BANG, "mini_count", 6);
+	float dmg = CF_GetArgF(victim, BOMBASTARD, BANG, "mini_damage", 60.0);
+	float rad = CF_GetArgF(victim, BOMBASTARD, BANG, "mini_radius", 160.0);
+	float ang = CF_GetArgF(victim, BOMBASTARD, BANG, "mini_angle", -30.0);
+	float vel = CF_GetArgF(victim, BOMBASTARD, BANG, "mini_velocity", 400.0);
+
+	float pos[3];
+	CF_WorldSpaceCenter(victim, pos);
+
+	Core_ShootGrenadeCluster(victim, dmg, rad, vel, ang, true, count, MODEL_CLUSTER_BOMB, 0.65, pos);
+
+	return Plugin_Continue;
 }
 
 public void CF_OnCharacterRemoved(int client, CF_CharacterRemovalReason reason)
