@@ -362,7 +362,7 @@ public void Cluster_Activate(int client, char ability[255])
 
 		TeleportEntity(bigboy, pos, ang, vel);
 
-		EmitSoundToAll(SOUND_CLUSTER_LAUNCHED);
+		EmitSoundToAll(SOUND_CLUSTER_LAUNCHED, client);
 
 		g_DHookGrenadeExplode.HookEntity(Hook_Pre, bigboy, Cluster_Explode);
 
@@ -617,7 +617,7 @@ public void CF_OnCharacterRemoved(int client, CF_CharacterRemovalReason reason)
 	SetForceButtonState(client, false, IN_ATTACK);
 	f_StrikeSwingTime[client] = 0.0;
 	b_StrikeMarked[client] = false;
-	AttachAura(client, TF2_GetClientTeam(client) == TFTeam_Red ? "utaunt_multicurse_teamcolor_red" : "utaunt_multicurse_teamcolor_blue");
+	RemoveAura(client, TF2_GetClientTeam(client) == TFTeam_Red ? "utaunt_multicurse_teamcolor_red" : "utaunt_multicurse_teamcolor_blue");
 }
 
 public void OnEntityCreated(int entity, const char[] classname)
