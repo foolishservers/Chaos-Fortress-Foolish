@@ -15,6 +15,7 @@
 #include "chaos_fortress/cf_weapons.sp"
 #include "chaos_fortress/cf_abilities.sp"
 #include "chaos_fortress/cf_animator.sp"
+#include "chaos_fortress/cf_status_effects.sp"
 
 bool b_InSpawn[2049][5];
 
@@ -64,6 +65,7 @@ public void CF_MakeNatives()
 	CFW_MakeNatives();
 	CFA_MakeNatives();
 	CFS_MakeNatives();
+	CFSE_MakeNatives();
 	
 	CreateNative("CF_IsEntityInSpawn", Native_CF_IsEntityInSpawn);
 }
@@ -88,6 +90,7 @@ public void CF_OnPluginStart()
 	CFA_MakeForwards();
 	CFS_OnPluginStart();
 	CFW_MakeForwards();
+	CFSE_MakeForwards();
 	
 	g_OnPlayerKilled = new GlobalForward("CF_OnPlayerKilled", ET_Ignore, Param_Cell, Param_Cell, Param_Cell, Param_Cell);
 	g_OnPlayerKilled_Pre = new GlobalForward("CF_OnPlayerKilled_Pre", ET_Event, Param_CellByRef, Param_CellByRef, Param_CellByRef, Param_String, Param_String, Param_CellByRef, Param_Cell, Param_CellByRef, Param_CellByRef);
