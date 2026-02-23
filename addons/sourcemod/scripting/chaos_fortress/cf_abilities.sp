@@ -1194,7 +1194,7 @@ public void CF_AttemptAbilitySlot(int client, CF_AbilityType type)
 		}
 		
 		if (!AbilityUsesStocks(client, type))
-			CF_ApplyAbilityCooldown(client, cooldown, type, true, false);
+			CF_ApplyAbilityCooldown(client, cooldown, type, true, true);
 	}
 	else
 	{

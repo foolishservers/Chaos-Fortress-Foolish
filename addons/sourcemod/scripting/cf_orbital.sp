@@ -45,6 +45,7 @@ int laserModel;
 #define SOUND_STRIKE_BLAST_2			")weapons/cow_mangler_explosion_charge_01.wav"
 #define SOUND_STRIKE_WARNING			")ambient_mp3/alarms/doomsday_lift_alarm.mp3"
 #define SOUND_TRACER_FULLCHARGE_LOOP	")weapons/crit_power.wav"
+#define SOUND_FUEL_DRAINED_BY_DAMAGE	")player/footsteps/mud3.wav"
 
 #define MODEL_TASER						"models/weapons/w_models/w_drg_ball.mdl"
 
@@ -61,6 +62,7 @@ public void OnMapStart()
 	PrecacheSound(SOUND_STRIKE_BLAST_2);
 	PrecacheSound(SOUND_STRIKE_WARNING);
 	PrecacheSound(SOUND_TRACER_FULLCHARGE_LOOP);
+	PrecacheSound(SOUND_FUEL_DRAINED_BY_DAMAGE);
 }
 
 public void CF_OnAbility(int client, char pluginName[255], char abilityName[255])
@@ -287,6 +289,7 @@ bool Gravity_Active[MAXPLAYERS + 1] = { false, ... };
 
 float Gravity_Cost[MAXPLAYERS + 1] = { 0.0, ... };
 float Gravity_Gravity[MAXPLAYERS + 1] = { 0.0, ... };
+float Gravity_LostPerDamage[MAXPLAYERS + 1] = { 0.0, ... };
 
 int Gravity_Wearable[MAXPLAYERS + 1] = { -1, ... };
 int Gravity_Particle[MAXPLAYERS + 1] = { -1, ... };
@@ -298,6 +301,7 @@ public void Gravity_Toggle(int client, char abilityName[255])
 		Gravity_Disable(client, false);
 		
 		Gravity_Cost[client] = CF_GetArgF(client, ORBITAL, abilityName, "drain");
+		Gravity_LostPerDamage[client] = CF_GetArgF(client, ORBITAL, abilityName, "drained_on_damage");
 		
 		char atts[255];
 		Format(atts, sizeof(atts), "610 ; %.4f", CF_GetArgF(client, ORBITAL, abilityName, "control"));
@@ -828,6 +832,21 @@ public Action CF_OnPlayerKilled_Pre(int &victim, int &inflictor, int &attacker, 
 		strcopy(weapon, sizeof(weapon), "righteous_bison");
 		return Plugin_Changed;
 	}
+
+	return Plugin_Continue;
+}
+
+public Action CF_OnTakeDamageAlive_Post(int victim, int attacker, int inflictor, float damage, int weapon)
+{
+	if (!IsValidClient(victim) || !Gravity_Active[victim] || Gravity_LostPerDamage[victim] == 0.0)
+		return Plugin_Continue;
+
+	CF_GiveSpecialResource(victim, -damage * Gravity_LostPerDamage[victim]);
+
+	if (IsValidClient(attacker))
+		EmitSoundToClient(attacker, SOUND_FUEL_DRAINED_BY_DAMAGE, _, _, _, _, _, GetRandomInt(90, 120));
+
+	EmitSoundToClient(victim, SOUND_FUEL_DRAINED_BY_DAMAGE, _, _, _, _, _, GetRandomInt(90, 120));
 
 	return Plugin_Continue;
 }

@@ -29,3 +29,4 @@
 addons/sourcemod/scripting/compile.sh
 addons/sourcemod/scripting/spcomp64
 addons/sourcemod/scripting/cf_npc_tester.sp
+addons/sourcemod/configs/chaos_fortress/stupid_heavy.cfg
