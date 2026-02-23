@@ -420,7 +420,13 @@ void ScytheThrow(int client, char abilityName[255])
 	{
 		target = TR_GetEntityIndex(trace);
 
-		EmitSoundToClient(client, Scythe_HomingSFX[GetRandomInt(0, sizeof(Scythe_HomingSFX) - 1)], _, _, 110, _, _, GetRandomInt(90, 110));
+		if (IsValidEntity(target) && target > 0)
+		{
+			EmitSoundToClient(client, Scythe_HomingSFX[GetRandomInt(0, sizeof(Scythe_HomingSFX) - 1)], _, _, 110, _, _, GetRandomInt(90, 110));
+			EmitSoundToClient(client, Scythe_HomingSFX[GetRandomInt(0, sizeof(Scythe_HomingSFX) - 1)], _, _, 110, _, _, GetRandomInt(90, 110));
+		}
+		else
+			target = -1;
 	}
 
 	delete trace;
