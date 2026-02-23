@@ -147,6 +147,17 @@ public void SetHeadshotIcon(int effect)
 		miniCritHit = true;
 	else
 		critHit = true;
+
+	RequestFrame(ClearHeadshotIcon, effect);
+}
+
+public void ClearHeadshotIcon(int effect)
+{
+	headshotKill = false;
+	if (effect < 2)
+		miniCritHit = false;
+	else
+		critHit = false;
 }
 
 Handle g_hSDKWorldSpaceCenter;
