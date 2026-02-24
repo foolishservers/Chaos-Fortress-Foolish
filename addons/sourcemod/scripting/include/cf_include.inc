@@ -2219,7 +2219,7 @@ native float CF_GetResourceRegenInterval(int client);
 
 /**
  * Checks if the given entity has the given status effect.
- * This only checks for CUSTOM status effects, defined in data/chaos_fortress/status_effects.cfg.
+ * This only checks for CUSTOM status effects, defined in the "status_effects" sections of individual character configs. Look at Kholdroz's CFG for an example.
  * 
  * @param entity			The entity to check.
  * @param effect			The status effect to check for. This is case-sensitive!
@@ -2238,7 +2238,7 @@ native bool CF_HasStatusEffect(int entity, char[] effect);
  * @param activeValue	Active Value to assign to the status effect once it is applied. See CF_GetStatusEffectActiveValue for an explanation of what the Active Value is, and how it is meant to be used.
  * @param forced		If true: ignore any attempt by the CF_OnStatusEffectApplied forward to block it.
  * 
- * @return		True if the status effect was successfully applied, false if it was blocked.
+ * @return		True if the status effect was successfully applied, false if it was blocked by CF_OnStatusEffectApplied, doesn't exist, or the target was a non-player entity and the status effect only allows players.
  */
 native bool CF_ApplyStatusEffect(int entity, char[] effect, float duration = 0.0, int applicant = -1, float activeValue = 0.0, bool forced = false);
 
@@ -2276,7 +2276,7 @@ native void CF_RemoveAllNegativeEffects(int entity, int applicant = -1);
 native void CF_RemoveAllStatusEffects(int entity, int applicant = -1);
 
 /**
- * Retrieves a float value associated with the given status effect, as defined in data/chaos_fortress/status_effects.cfg.
+ * Retrieves a float value associated with the given status effect, as defined in the "status_effects" sections of individual character configs. Look at Kholdroz's CFG for an example.
  * 
  * @param effect		The effect to get the float value of.
  * @param arg			The arg to retrieve.
@@ -2287,7 +2287,7 @@ native void CF_RemoveAllStatusEffects(int entity, int applicant = -1);
 native float CF_GetStatusEffectArgF(char[] effect, char[] arg, float defaultValue = 0.0);
 
 /**
- * Retrieves an integer value associated with the given status effect, as defined in data/chaos_fortress/status_effects.cfg.
+ * Retrieves an integer value associated with the given status effect, as defined in the "status_effects" sections of individual character configs. Look at Kholdroz's CFG for an example.
  * 
  * @param effect		The effect to get the integer value of.
  * @param arg			The arg to retrieve.
@@ -2298,7 +2298,7 @@ native float CF_GetStatusEffectArgF(char[] effect, char[] arg, float defaultValu
 native int CF_GetStatusEffectArgI(char[] effect, char[] arg, int defaultValue = 0);
 
 /**
- * Retrieves a boolean value associated with the given status effect, as defined in data/chaos_fortress/status_effects.cfg.
+ * Retrieves a boolean value associated with the given status effect, as defined in the "status_effects" sections of individual character configs. Look at Kholdroz's CFG for an example.
  * 
  * @param effect		The effect to get the boolean value of.
  * @param arg			The arg to retrieve.
@@ -2309,7 +2309,7 @@ native int CF_GetStatusEffectArgI(char[] effect, char[] arg, int defaultValue = 
 native bool CF_GetStatusEffectArgB(char[] effect, char[] arg, bool defaultValue = false);
 
 /**
- * Retrieves a string value associated with the given status effect, as defined in data/chaos_fortress/status_effects.cfg.
+ * Retrieves a string value associated with the given status effect, as defined in the "status_effects" sections of individual character configs. Look at Kholdroz's CFG for an example.
  * 
  * @param effect		The effect to get the string value of.
  * @param arg			The arg to retrieve.
@@ -2344,7 +2344,7 @@ native void CF_SetStatusEffectActiveValue(int entity, char[] effect, float newVa
 
 /**
  * Called when a custom status effect is applied.
- * This is only called for CUSTOM status effects, defined in data/chaos_fortress/status_effects.cfg.
+ * This is only called for CUSTOM status effects, defined in the "status_effects" sections of individual character configs. Look at Kholdroz's CFG for an example.
  * 
  * @param entity		The entity to which the status effect was applied.
  * @param effect		The status effect which was applied.
@@ -2357,7 +2357,7 @@ forward Action CF_OnStatusEffectApplied(int entity, char[] effect, int applicant
 
 /**
  * Called when a custom status effect is removed.
- * This is only called for CUSTOM status effects, defined in data/chaos_fortress/status_effects.cfg.
+ * This is only called for CUSTOM status effects, defined in the "status_effects" sections of individual character configs. Look at Kholdroz's CFG for an example.
  * 
  * @param entity		The entity from which the status effect was removed.
  * @param effect		The status effect which was removed.

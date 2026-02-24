@@ -6,6 +6,7 @@
 //#define DEBUG_GAMERULES
 //#define DEBUG_SOUNDS
 //#define USE_PREVIEWS
+#define DEBUG_STATUS_EFFECTS
 //#define TESTING
 
 //	- MANDATORY TO-DO LIST (these MUST be done before the initial release):
