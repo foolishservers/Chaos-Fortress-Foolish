@@ -117,6 +117,50 @@ public void CFSE_ClearStatusEffects()
     i_NumTemplates = 0;
 }
 
+public int CFSE_GetEffectSlot(char[] effect)
+{
+    if (i_NumTemplates < 1)
+        return -1;
+
+    for (int i = 0; i < i_NumTemplates; i++)
+    {
+        if (StrEqual(s_StatusNames[i], effect))
+            return i;
+    }
+
+    return -1;
+}
+
+public int CFSE_GetArgSlot(int effectSlot, char[] arg)
+{
+    if (effectSlot < 0 || effectSlot > 2048 || g_StatusTemplateArgs[effectSlot] == null)
+        return -1;
+
+    for (int i = 0; i < GetArraySize(g_StatusTemplateArgs[effectSlot]); i++)
+    {
+        char argName[255];
+        GetArrayString(g_StatusTemplateArgs[effectSlot], i, argName, 255);
+
+        if (StrEqual(argName, arg))
+            return i;
+    }
+
+    return -1;
+}
+
+public bool CFSE_GetArgValue(char[] effect, char[] arg, char[] output, int size)
+{
+    int effectSlot = CFSE_GetEffectSlot(effect);
+    if (effectSlot < 0)
+        return false;
+
+    int argSlot = CFSE_GetArgSlot(effectSlot, arg);
+    if (argSlot < 0)
+        return false;
+
+    GetArrayString(g_StatusTemplateValues[effectSlot], argSlot, output, size);
+}
+
 public any Native_CF_HasStatusEffect(Handle plugin, int numParams)
 {
 
@@ -153,21 +197,61 @@ public Native_CF_RemoveAllStatusEffects(Handle plugin, int numParams)
 
 public any Native_CF_GetStatusEffectArgF(Handle plugin, int numParams)
 {
+    char effect[255], arg[255];
+    GetNativeString(1, effect, 255);
+    GetNativeString(2, arg, 255);
 
+    if (CFSE_GetArgValue(effect, arg, arg, 255))
+    {
+        return StringToFloat(arg);
+    }
+    
+    return GetNativeCell(3);
 }
 
 public Native_CF_GetStatusEffectArgI(Handle plugin, int numParams)
 {
+    char effect[255], arg[255];
+    GetNativeString(1, effect, 255);
+    GetNativeString(2, arg, 255);
 
+    if (CFSE_GetArgValue(effect, arg, arg, 255))
+    {
+        return StringToInt(arg);
+    }
+    
+    return GetNativeCell(3);
 }
 
 public any Native_CF_GetStatusEffectArgB(Handle plugin, int numParams)
 {
+    char effect[255], arg[255];
+    GetNativeString(1, effect, 255);
+    GetNativeString(2, arg, 255);
 
+    if (CFSE_GetArgValue(effect, arg, arg, 255))
+    {
+        return StringToInt(arg) > 0;
+    }
+    
+    return GetNativeCell(3);
 }
 
 public Native_CF_GetStatusEffectArgS(Handle plugin, int numParams)
 {
+    char effect[255], arg[255];
+    GetNativeString(1, effect, 255);
+    GetNativeString(2, arg, 255);
+
+    if (CFSE_GetArgValue(effect, arg, arg, 255))
+    {
+        SetNativeString(3, arg, GetNativeCell(4));
+        return 0;
+    }
+    
+    char defaultVal[255];
+    GetNativeString(5, defaultVal, 255);
+    SetNativeString(3, defaultVal, GetNativeCell(4));
 
     return 0;
 }
