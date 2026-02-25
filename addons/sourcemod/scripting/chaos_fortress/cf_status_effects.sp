@@ -164,6 +164,15 @@ public void CFSE_LoadStatusEffectsFromCharacter(ConfigMap Character)
 	{
 		char effectName[255];
 		snap.GetKey(i, effectName, sizeof(effectName));
+
+        //An effect with an identical name already exists, throw a warning and do not add it.
+        if (CFSE_GetEffectSlot(effectName) >= 0)
+        {
+            char charName[128];
+            Character.Get("character.name", charName, 128);
+            PrintToServer("WARNING: Character ''%s'' attempts to add custom status effect ''%s'', but that status effect's name is already in use! Skipping this status effect.", charName, effectName);
+            continue;
+        }
 					
 		ConfigMap subsection = Effects.GetSection(effectName);
         if (subsection != null)
