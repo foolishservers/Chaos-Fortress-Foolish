@@ -647,7 +647,7 @@ void CFSE_ManageEffectDurations()
         if (g_ActiveEffectNames[i] == null)
             continue;
 
-        for (int j = 0; j < GetArraySize(g_ActiveEffectNames[i]) && g_ActiveEffectNames[i] != null; j++)
+        for (int j = 0; g_ActiveEffectNames[i] != null && j < GetArraySize(g_ActiveEffectNames[i]); j++)
         {
             char name[255];
             GetArrayString(g_ActiveEffectNames[i], j, name, 255);
@@ -660,3 +660,78 @@ void CFSE_ManageEffectDurations()
         }
     }
 }
+
+//EXAMPLE USAGE BELOW (A BETTER EXAMPLE WILL BE PUT ON KHOLDROZ LATER)
+//The following example is a simple custom debuff which lights the victim on fire for 5s, dealing 5 damage per tick, plus a random extra amount between 1-10 using the status effect's Active Value.
+
+//In the character's config:
+/*
+
+"status_effects"
+{
+	"Debug Burn"        //The name of our special debuff, "Debug Burn".
+	{
+		"positive"	"0"             //This is marked as a negative status effect, because being on fire is unpleasant.
+		"allow_entities"	"1"     //We allow entities, such as sentries and NPCs, to suffer from this debuff.
+			
+		"custom_args"
+		{
+			"damage"		"5.0"   //We deal 5 base damage per tick.
+			"duration"		"5.0"   //It lasts for 5s.
+		}
+	}
+}
+
+*/
+
+//And then, the code to make this debuff work:
+/*
+
+Handle g_DebugBurnTimer[2049] = { null, ... };
+
+public void MySpecialDebuff(int victim, int attacker)
+{
+    CF_ApplyStatusEffect(victim, "Debug Burn", CF_GetStatusEffectArgF("Debug Burn", "duration", 3.0), attacker, GetRandomFloat(1.0, 10.0), _, true);
+}
+
+public void CF_OnStatusEffectApplied_Post(int entity, char[] effect, int applicant)
+{
+	AttachAura(entity, "utaunt_multicurse_teamcolor_red");
+
+	DataPack pack = new DataPack();
+	g_DebugBurnTimer[entity] = CreateDataTimer(0.5, DebugBurn, pack, TIMER_REPEAT|TIMER_FLAG_NO_MAPCHANGE);
+	WritePackCell(pack, EntIndexToEntRef(entity));
+	WritePackCell(pack, entity);
+}
+
+public Action DebugBurn(Handle debug, DataPack pack)
+{
+	ResetPack(pack);
+
+	int vic = EntRefToEntIndex(ReadPackCell(pack));
+	int cell = ReadPackCell(pack);
+
+	if (!IsValidEntity(vic) || (IsValidClient(vic) && !IsPlayerAlive(vic)))
+	{
+		g_DebugBurnTimer[cell] = null;
+		return Plugin_Stop;
+	}
+
+	int attacker = CF_GetStatusEffectApplicant(vic, "Debug Burn");
+	float dmg = CF_GetStatusEffectActiveValue(vic, "Debug Burn") + CF_GetStatusEffectArgF("Debug Burn", "damage");
+	SDKHooks_TakeDamage(vic, _, attacker, dmg);
+
+	return Plugin_Continue;
+}
+
+public void CF_OnStatusEffectRemoved(int entity, char[] effect, int applicant)
+{
+	RemoveAura(entity, "utaunt_multicurse_teamcolor_red");
+	EmitSoundToAll(SOUND_DEBUG_BURN_REMOVED, entity);
+
+    //NOTE: in an actual plugin, you would also want to delete the timer and set it to null if the victim dies/disconnects/is destroyed, as well as when the round changes. For the sake of this quick example, I will not be including that.
+	delete g_DebugBurnTimer[entity];
+	g_DebugBurnTimer[entity] = null;
+}
+
+*/

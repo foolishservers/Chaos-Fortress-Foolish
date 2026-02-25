@@ -412,6 +412,8 @@ public void CFA_StockLogic(int client, CFAbility ability, CF_AbilityType type)
 
 public Action CFA_HUDTimer(Handle timer)
 {
+	CFSE_ManageEffectDurations();
+	
 	int rState = CF_GetRoundState();
 	
 	for (int client = 1; client <= MaxClients; client++)
