@@ -651,6 +651,9 @@ public any Native_CF_SetStatusEffectEndTime(Handle plugin, int numParams)
 
 void CFSE_ManageEffectDurations()
 {
+    if (g_StatusNames == null)  //This server doesn't even have any custom status effects, don't bother with the big loop.
+        return;
+
     for (int i = 0; i < 2049; i++)
     {
         if (g_ActiveEffectNames[i] == null)
