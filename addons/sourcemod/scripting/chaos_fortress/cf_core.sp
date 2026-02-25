@@ -770,6 +770,8 @@ public void Core_OnEntityDestroyed(int entity)
 	{
 		for (int i = 0; i < 4; i++)
 			b_InSpawn[entity][i] = false;
+
+		CFSE_RemoveAllEffectsFromEntity(entity);
 	}
 }
 

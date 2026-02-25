@@ -2237,10 +2237,11 @@ native bool CF_HasStatusEffect(int entity, char[] effect);
  * @param applicant		The player/entity who applied the status effect.
  * @param activeValue	Active Value to assign to the status effect once it is applied. See CF_GetStatusEffectActiveValue for an explanation of what the Active Value is, and how it is meant to be used.
  * @param forced		If true: ignore any attempt by the CF_OnStatusEffectApplied forward to block it.
+ * @param replace		If true, and the status effect already exists: remove it, then apply this new version.
  * 
  * @return		True if the status effect was successfully applied, false if it was blocked by CF_OnStatusEffectApplied, doesn't exist, or the target was a non-player entity and the status effect only allows players.
  */
-native bool CF_ApplyStatusEffect(int entity, char[] effect, float duration = 0.0, int applicant = -1, float activeValue = 0.0, bool forced = false);
+native bool CF_ApplyStatusEffect(int entity, char[] effect, float duration = 0.0, int applicant = -1, float activeValue = 0.0, bool forced = false, bool replace = false);
 
 /**
  * Removes a custom status effect from the given entity.
@@ -2341,6 +2342,44 @@ native float CF_GetStatusEffectActiveValue(int entity, char[] effect, float defa
  * @param newValue		The value to set.
  */
 native void CF_SetStatusEffectActiveValue(int entity, char[] effect, float newValue);
+
+/**
+ * Retrieves the entity which applied the status effect to the given entity, if an applicant was assigned.
+ * 
+ * @param entity		The entity whose status effects to check.
+ * @param effect		The effect to get the appliant of.
+ * 
+ * @return	The entity index of the status effect's applicant, or -1 if no applicant exists or the status effect was not active on the given entity.
+ */
+native int CF_GetStatusEffectApplicant(int entity, char[] effect);
+
+/**
+ * Sets the entity to be credited for applying the given status effect to the given entity.
+ * 
+ * @param entity		The entity whose status effects to modify.
+ * @param effect		The effect to set the appliant of.
+ * @param newApplicant	The entity to be credited for applying this status effect.
+ */
+native void CF_SetStatusEffectApplicant(int entity, char[] effect, int newApplicant);
+
+/**
+ * Gets the time at which the given status effect will naturally expire.
+ * 
+ * @param entity		The entity whose status effects to check.
+ * @param effect		The effect to get the expiration time of.
+ * 
+ * @return		The GameTime at which the given status effect is set to naturally expire, or 0.0 if the effect was not found or has no expiration time.
+ */
+native float CF_GetStatusEffectEndTime(int entity, char[] effect);
+
+/**
+ * Sets the time at which the given status effect will naturally expire.
+ * 
+ * @param entity		The entity whose status effects to modify.
+ * @param effect		The status effect to override the end time of.
+ * @param endTime		The new GameTime at which this status effect should be applied. 0.0 can be used to assign infinite duration.
+ */
+native void CF_SetStatusEffectEndTime(int entity, char[] effect, float endTime);
 
 /**
  * Called when a custom status effect is applied.

@@ -20,22 +20,92 @@ public void CFSE_MakeNatives()
     CreateNative("CF_GetStatusEffectArgS", Native_CF_GetStatusEffectArgS);
     CreateNative("CF_GetStatusEffectActiveValue", Native_CF_GetStatusEffectActiveValue);
     CreateNative("CF_SetStatusEffectActiveValue", Native_CF_SetStatusEffectActiveValue);
+    CreateNative("CF_GetStatusEffectApplicant", Native_CF_GetStatusEffectApplicant);
+    CreateNative("CF_SetStatusEffectApplicant", Native_CF_SetStatusEffectApplicant);
+    CreateNative("CF_GetStatusEffectEndTime", Native_CF_GetStatusEffectEndTime);
+    CreateNative("CF_SetStatusEffectEndTime", Native_CF_SetStatusEffectEndTime);
 }
 
-char s_StatusNames[2049][255];
-g_StatusInfo g_StatusTemplates[2049];
-int i_NumTemplates = 0;
-
+ArrayList g_StatusNames;
 ArrayList g_StatusTemplateArgs[2049];
 ArrayList g_StatusTemplateValues[2049];
 
-enum struct g_StatusInfo
+StatusInfo g_StatusTemplates[2049];
+enum struct StatusInfo
 {
     bool positive;
     bool allow_entities;
 
     void Create(bool pos, bool ents) { this.positive = pos; this.allow_entities = ents; }
     void RevertToDefault() { this.positive = false; this.allow_entities = false; }
+}
+
+ArrayList g_ActiveEffectNames[2049];
+ArrayList g_ActiveEffectStats[2049];
+
+//This will break if more than 2048 status effects are active at once. I do not expect this to ever happen in practice, so I'm not going to bother coming up with a more permanent solution.
+bool b_ActiveEffectExists[2049] = { false, ... };
+
+int i_ActiveEffectOwner[2049] = { -1, ... };
+int i_ActiveEffectApplicant[2049] = { -1, ... };
+
+float f_ActiveEffectActiveValue[2049] = { 0.0, ... };
+float f_ActiveEffectEndTime[2049] = { 0.0, ... };
+
+methodmap CFStatusEffect __nullable__
+{
+	public CFStatusEffect()
+	{
+		for (int i = 1; i <= MAXPLAYERS; i++)
+		{
+			if (!b_ActiveEffectExists[i])
+			{
+				b_ActiveEffectExists[i] = true;
+				return view_as<CFStatusEffect>(i);
+			}
+		}
+
+		CPrintToChatAll("{red}TOO MANY STATUS EFFECTS ARE ACTIVE AT ONCE! THIS SHOULD NEVER HAPPEN, SEND A SCREENSHOT OF THIS TO A DEV!");
+		return view_as<CFStatusEffect>(-1);
+	}
+
+    public void Destroy()
+    {
+        b_ActiveEffectExists[this.index] = false;
+        i_ActiveEffectOwner[this.index] = -1;
+        i_ActiveEffectApplicant[this.index] = -1;
+        f_ActiveEffectActiveValue[this.index] = 0.0;
+        f_ActiveEffectEndTime[this.index] = 0.0;
+    }
+
+    property int index
+	{
+		public get() { return view_as<int>(this); }
+	}
+
+    property int i_Owner
+    {
+        public get() { return EntRefToEntIndex(i_ActiveEffectOwner[this.index]); }
+        public set(int value) { i_ActiveEffectOwner[this.index] = EntIndexToEntRef(value); }
+    }
+
+    property int i_Applicant
+    {
+        public get() { return EntRefToEntIndex(i_ActiveEffectApplicant[this.index]); }
+        public set(int value) { i_ActiveEffectApplicant[this.index] = EntIndexToEntRef(value); }
+    }
+
+    property float f_ActiveValue
+    {
+        public get() { return f_ActiveEffectActiveValue[this.index]; }
+        public set(float value) { f_ActiveEffectActiveValue[this.index] = value; }
+    }
+
+    property float f_EndTime
+    {
+        public get() { return f_ActiveEffectEndTime[this.index]; }
+        public set(float value) { f_ActiveEffectEndTime[this.index] = value; }
+    }
 }
 
 public void CFSE_LoadStatusEffectsFromCharacter(ConfigMap Character)
@@ -63,13 +133,17 @@ public void CFSE_LoadStatusEffectsFromCharacter(ConfigMap Character)
 
 public void CFSE_AddStatusEffect(ConfigMap effect, char[] name)
 {
-    strcopy(s_StatusNames[i_NumTemplates], 255, name);
-    g_StatusTemplates[i_NumTemplates].Create(GetBoolFromCFGMap(effect, "positive", false), GetBoolFromCFGMap(effect, "allow_entities", true));
+    if (g_StatusNames == null)
+        g_StatusNames = CreateArray(128);
+
+    int slot = GetArraySize(g_StatusNames);
+    PushArrayString(g_StatusNames, name);
+    g_StatusTemplates[slot].Create(GetBoolFromCFGMap(effect, "positive", false), GetBoolFromCFGMap(effect, "allow_entities", true));
 
     #if defined DEBUG_STATUS_EFFECTS
     PrintToServer("ADDED STATUS EFFECT: %s", name);
-    PrintToServer("     - Positive: %i", g_StatusTemplates[i_NumTemplates].positive);
-    PrintToServer("     - Allows Entities: %i", g_StatusTemplates[i_NumTemplates].allow_entities);
+    PrintToServer("     - Positive: %i", g_StatusTemplates[slot].positive);
+    PrintToServer("     - Allows Entities: %i", g_StatusTemplates[slot].allow_entities);
     #endif
 
     ConfigMap custArgs = effect.GetSection("custom_args");
@@ -79,8 +153,8 @@ public void CFSE_AddStatusEffect(ConfigMap effect, char[] name)
 
         if (snap.Length > 0)
         {
-            g_StatusTemplateArgs[i_NumTemplates] = CreateArray(128);
-            g_StatusTemplateValues[i_NumTemplates] = CreateArray(128);
+            g_StatusTemplateArgs[slot] = CreateArray(128);
+            g_StatusTemplateValues[slot] = CreateArray(128);
         }
 				
         for (int i = 0; i < snap.Length; i++)
@@ -89,8 +163,8 @@ public void CFSE_AddStatusEffect(ConfigMap effect, char[] name)
             snap.GetKey(i, argName, sizeof(argName));
             custArgs.Get(argName, value, 128);
 
-            PushArrayString(g_StatusTemplateArgs[i_NumTemplates], argName);
-            PushArrayString(g_StatusTemplateValues[i_NumTemplates], value);
+            PushArrayString(g_StatusTemplateArgs[slot], argName);
+            PushArrayString(g_StatusTemplateValues[slot], value);
 
             #if defined DEBUG_STATUS_EFFECTS
             PrintToServer("     - ''%s''    ''%s''", argName, value);
@@ -99,36 +173,63 @@ public void CFSE_AddStatusEffect(ConfigMap effect, char[] name)
                 
         delete snap;
     }
-
-    i_NumTemplates++;
 }
 
 public void CFSE_ClearStatusEffects()
 {
-    for (int i = 0; i < i_NumTemplates; i++)
-    {
-        strcopy(s_StatusNames[i], 255, "");
-        g_StatusTemplates[i].RevertToDefault();
+    if (g_StatusNames == null)
+        return;
 
+    for (int i = 0; i < GetArraySize(g_StatusNames); i++)
+    {
+        g_StatusTemplates[i].RevertToDefault();
         delete g_StatusTemplateArgs[i];
         delete g_StatusTemplateValues[i];
     }
 
-    i_NumTemplates = 0;
+    delete g_StatusNames;
+
+    for (int i = 0; i < 2049; i++)
+        CFSE_RemoveAllEffectsFromEntity(i);
 }
 
-public int CFSE_GetEffectSlot(char[] effect)
+//Pass a valid entity to search for the effect in the given entity's list of active effects, otherwise it searches for the effect in the list of preloaded templates.
+int CFSE_GetEffectSlot(char[] effect, int entity = -1)
 {
-    if (i_NumTemplates < 1)
-        return -1;
-
-    for (int i = 0; i < i_NumTemplates; i++)
+    if (IsValidEntity(entity))
     {
-        if (StrEqual(s_StatusNames[i], effect))
-            return i;
+        if (g_ActiveEffectNames[entity] == null)
+            return -1;
+
+        for (int i = 0; i < GetArraySize(g_ActiveEffectNames[entity]); i++)
+        {
+            char name[255];
+            GetArrayString(g_ActiveEffectNames[entity], i, name, 255);
+            if (StrEqual(name, effect))
+                return i;
+        }
+    }
+    else if (g_StatusNames != null)
+    {
+        for (int i = 0; i < GetArraySize(g_StatusNames); i++)
+        {
+            char name[255];
+            GetArrayString(g_StatusNames, i, name, 255);
+            if (StrEqual(name, effect))
+                return i;
+        }
     }
 
     return -1;
+}
+
+CFStatusEffect CFSE_GetStatusEffect(int entity, char[] effect)
+{
+    int slot = CFSE_GetEffectSlot(effect, entity);
+    if (slot < 0)
+        return null;
+
+    return view_as<CFStatusEffect>(GetArrayCell(g_ActiveEffectStats[entity], slot));
 }
 
 public int CFSE_GetArgSlot(int effectSlot, char[] arg)
@@ -159,38 +260,119 @@ public bool CFSE_GetArgValue(char[] effect, char[] arg, char[] output, int size)
         return false;
 
     GetArrayString(g_StatusTemplateValues[effectSlot], argSlot, output, size);
+    return true;
+}
+
+//Mode: 1 only removes positive effects, 2 only removes negative effects, all other values remove all effects.
+//Applicant: if this is a valid entity, effects will only be removed if they were applied by that entity.
+void CFSE_RemoveEffectFromEntity(int entity, char[] effect, int mode = 0, int applicant = -1)
+{
+    int slot = CFSE_GetEffectSlot(effect, entity);
+
+    if (slot < 0)
+        return;
+
+    if (mode > 0 && mode < 3)
+    {
+        int tempSlot = CFSE_GetEffectSlot(effect);
+        if ((g_StatusTemplates[tempSlot].positive && mode == 2) || (!g_StatusTemplates[tempSlot].positive && mode == 1))
+            return;
+    }
+
+    int cell = GetArrayCell(g_ActiveEffectStats[entity], slot);
+    CFStatusEffect info = view_as<CFStatusEffect>(cell);
+
+    if (IsValidEntity(applicant) && info.i_Applicant != applicant)
+        return;
+
+    RemoveFromArray(g_ActiveEffectStats[entity], slot);
+    if (GetArraySize(g_ActiveEffectStats[entity]) < 1)
+        delete g_ActiveEffectStats[entity];
+
+    RemoveFromArray(g_ActiveEffectNames[entity], slot);
+    if (GetArraySize(g_ActiveEffectNames[entity]) < 1)
+        delete g_ActiveEffectNames[entity];
+
+    info.Destroy();
+}
+
+//Mode: 1 only removes positive effects, 2 only removes negative effects, all other values remove all effects.
+//Applicant: if this is a valid entity, effects will only be removed if they were applied by that entity.
+void CFSE_RemoveAllEffectsFromEntity(int entity, int mode = 0, int applicant = -1)
+{
+    if (g_ActiveEffectNames[entity] == null)
+        return;
+
+    for (int i = 0; i < GetArraySize(g_ActiveEffectNames[entity]); i++)
+    {
+        char name[255];
+        GetArrayString(g_ActiveEffectNames[entity], i, name, 255);
+        CFSE_RemoveEffectFromEntity(entity, name, mode, applicant);
+
+        if (g_ActiveEffectNames[entity] == null)
+            return;
+    }
 }
 
 public any Native_CF_HasStatusEffect(Handle plugin, int numParams)
 {
+    int entity = GetNativeCell(1);
+    char effect[255];
+    GetNativeString(2, effect, 255);
 
+    return (CFSE_GetEffectSlot(effect, entity) != -1);
 }
 
 public any Native_CF_ApplyStatusEffect(Handle plugin, int numParams)
 {
-
+    int entity = GetNativeCell(1);
+    char effect[255];
+    GetNativeString(2, effect, 255);
+    float duration = GetNativeCell(3);
+    int applicant = GetNativeCell(4);
+    float activeValue = GetNativeCell(5);
+    bool force = GetNativeCell(6);
+    bool replace = GetNativeCell(7);
 }
 
 public Native_CF_RemoveStatusEffect(Handle plugin, int numParams)
 {
+    int entity = GetNativeCell(1);
+    char effect[255];
+    GetNativeString(2, effect, 255);
+    int applicant = GetNativeCell(3);
+
+    CFSE_RemoveEffectFromEntity(entity, effect, _, applicant);
 
     return 0;
 }
 
 public Native_CF_RemoveAllPositiveEffects(Handle plugin, int numParams)
 {
+    int entity = GetNativeCell(1);
+    int applicant = GetNativeCell(2);
+
+    CFSE_RemoveAllEffectsFromEntity(entity, 1, applicant);
 
     return 0;
 }
 
 public Native_CF_RemoveAllNegativeEffects(Handle plugin, int numParams)
 {
+    int entity = GetNativeCell(1);
+    int applicant = GetNativeCell(2);
+
+    CFSE_RemoveAllEffectsFromEntity(entity, 2, applicant);
 
     return 0;
 }
 
 public Native_CF_RemoveAllStatusEffects(Handle plugin, int numParams)
 {
+    int entity = GetNativeCell(1);
+    int applicant = GetNativeCell(2);
+
+    CFSE_RemoveAllEffectsFromEntity(entity, 0, applicant);
 
     return 0;
 }
@@ -258,11 +440,84 @@ public Native_CF_GetStatusEffectArgS(Handle plugin, int numParams)
 
 public any Native_CF_GetStatusEffectActiveValue(Handle plugin, int numParams)
 {
+    int entity = GetNativeCell(1);
+    char effect[255];
+    GetNativeString(2, effect, 255);
 
+    CFStatusEffect eff = CFSE_GetStatusEffect(entity, effect);
+    if (eff.index == -1)
+        return GetNativeCell(3);
+
+    return eff.f_ActiveValue;
 }
 
 public any Native_CF_SetStatusEffectActiveValue(Handle plugin, int numParams)
 {
+    int entity = GetNativeCell(1);
+    char effect[255];
+    GetNativeString(2, effect, 255);
+
+    CFStatusEffect eff = CFSE_GetStatusEffect(entity, effect);
+    if (eff.index == -1)
+        return 0;
+
+    eff.f_ActiveValue = GetNativeCell(3);
+
+    return 0;
+}
+
+public any Native_CF_GetStatusEffectApplicant(Handle plugin, int numParams)
+{
+    int entity = GetNativeCell(1);
+    char effect[255];
+    GetNativeString(2, effect, 255);
+
+    CFStatusEffect eff = CFSE_GetStatusEffect(entity, effect);
+    if (eff.index == -1)
+        return -1;
+
+    return eff.i_Applicant;
+}
+
+public any Native_CF_SetStatusEffectApplicant(Handle plugin, int numParams)
+{
+    int entity = GetNativeCell(1);
+    char effect[255];
+    GetNativeString(2, effect, 255);
+
+    CFStatusEffect eff = CFSE_GetStatusEffect(entity, effect);
+    if (eff.index == -1)
+        return 0;
+
+    eff.i_Applicant = GetNativeCell(3);
+
+    return 0;
+}
+
+public any Native_CF_GetStatusEffectEndTime(Handle plugin, int numParams)
+{
+    int entity = GetNativeCell(1);
+    char effect[255];
+    GetNativeString(2, effect, 255);
+
+    CFStatusEffect eff = CFSE_GetStatusEffect(entity, effect);
+    if (eff.index == -1)
+        return 0.0;
+
+    return eff.f_EndTime;
+}
+
+public any Native_CF_SetStatusEffectEndTime(Handle plugin, int numParams)
+{
+    int entity = GetNativeCell(1);
+    char effect[255];
+    GetNativeString(2, effect, 255);
+
+    CFStatusEffect eff = CFSE_GetStatusEffect(entity, effect);
+    if (eff.index == -1)
+        return 0;
+
+    eff.f_EndTime = GetNativeCell(3);
 
     return 0;
 }

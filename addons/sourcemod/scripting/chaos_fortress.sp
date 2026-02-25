@@ -111,6 +111,7 @@ public void OnMapEnd()
 	CFC_MapEnd();
 	CFB_MapEnd();
 	CFW_MapChange();
+	CFSE_ClearStatusEffects();
 
 	ConfigMap rules = new ConfigMap("data/chaos_fortress/game_rules.cfg");
 	if (rules != null)
