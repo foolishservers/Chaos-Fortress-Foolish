@@ -1703,7 +1703,7 @@ void CF_LoadSpecificCharacter(char path[255], bool JustDownload, bool admin = fa
  
  	CF_ManageCharacterFiles(Character);
 	CFSE_LoadStatusEffectsFromCharacter(Character);
-	
+
  	DeleteCfg(Character);
  }
  
@@ -3334,6 +3334,7 @@ public void CFC_NoLongerNeedsHelp(int client)
  	CFC_DeleteParticles(client, true);
  	CFA_RemoveAnimator(client);
 	CF_RemoveAllSpeedModifiers(client, false);
+	CFSE_RemoveAllEffectsFromEntity(client);
 }
  
 public void CF_RemoveAllSpeedModifiers(int client, bool resupply)

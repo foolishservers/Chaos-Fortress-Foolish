@@ -1,9 +1,14 @@
-GlobalForward g_OnStatusEffectApplied, g_OnStatusEffectRemoved;
+GlobalForward g_OnStatusEffectApplied_Pre, g_OnStatusEffectApplied_Post, g_OnStatusEffectRemoved, g_OnStatusEffectActiveValueChanged_Pre, g_OnStatusEffectActiveValueChanged_Post;
 
 public void CFSE_MakeForwards()
 {
-    g_OnStatusEffectApplied = new GlobalForward("CF_OnStatusEffectApplied", ET_Event, Param_Cell, Param_String, Param_Cell, Param_CellByRef);
+    g_OnStatusEffectApplied_Pre = new GlobalForward("CF_OnStatusEffectApplied_Pre", ET_Event, Param_Cell, Param_String, Param_Cell, Param_CellByRef);
+    g_OnStatusEffectApplied_Post = new GlobalForward("CF_OnStatusEffectApplied_Post", ET_Ignore, Param_Cell, Param_String, Param_Cell);
+
     g_OnStatusEffectRemoved = new GlobalForward("CF_OnStatusEffectRemoved", ET_Ignore, Param_Cell, Param_String, Param_Cell);
+
+    g_OnStatusEffectActiveValueChanged_Pre = new GlobalForward("g_OnStatusEffectActiveValueChanged_Pre", ET_Event, Param_Cell, Param_String, Param_Cell, Param_Float, Param_FloatByRef, Param_CellByRef);
+    g_OnStatusEffectActiveValueChanged_Post = new GlobalForward("g_OnStatusEffectActiveValueChanged_Post", ET_Ignore, Param_Cell, Param_String, Param_Cell, Param_Float);
 }
 
 public void CFSE_MakeNatives()
@@ -52,6 +57,10 @@ int i_ActiveEffectApplicant[2049] = { -1, ... };
 float f_ActiveEffectActiveValue[2049] = { 0.0, ... };
 float f_ActiveEffectEndTime[2049] = { 0.0, ... };
 
+char s_CurrentChange[255];
+
+bool DoNotCallActiveValueForwards = false;
+
 methodmap CFStatusEffect __nullable__
 {
 	public CFStatusEffect()
@@ -98,7 +107,42 @@ methodmap CFStatusEffect __nullable__
     property float f_ActiveValue
     {
         public get() { return f_ActiveEffectActiveValue[this.index]; }
-        public set(float value) { f_ActiveEffectActiveValue[this.index] = value; }
+        public set(float value)
+        {
+            if (!DoNotCallActiveValueForwards)
+            {
+                bool result = true;
+                Action event;
+
+                Call_StartForward(g_OnStatusEffectActiveValueChanged_Pre);
+
+                Call_PushCell(this.i_Owner);
+                Call_PushString(s_CurrentChange);
+                Call_PushCell(this.i_Applicant);
+                Call_PushFloat(this.f_ActiveValue);
+                Call_PushFloatRef(value);
+                Call_PushCellRef(result);
+
+                Call_Finish(event);
+
+                if (!result)
+                    return;
+            }
+            
+            f_ActiveEffectActiveValue[this.index] = value;
+
+            if (!DoNotCallActiveValueForwards)
+            {
+                Call_StartForward(g_OnStatusEffectActiveValueChanged_Post);
+
+                Call_PushCell(this.i_Owner);
+                Call_PushString(s_CurrentChange);
+                Call_PushCell(this.i_Applicant);
+                Call_PushFloat(value);
+
+                Call_Finish();
+            }
+        }
     }
 
     property float f_EndTime
@@ -293,6 +337,18 @@ void CFSE_RemoveEffectFromEntity(int entity, char[] effect, int mode = 0, int ap
     if (GetArraySize(g_ActiveEffectNames[entity]) < 1)
         delete g_ActiveEffectNames[entity];
 
+    Call_StartForward(g_OnStatusEffectRemoved);
+
+    Call_PushCell(entity);
+    Call_PushString(effect);
+    Call_PushCell(info.i_Applicant);
+
+    Call_Finish();
+
+    #if defined DEBUG_STATUS_EFFECTS
+    PrintToServer("REMOVED STATUS EFFECT ''%s'' FROM ENTITY %i, APPLICANT WAS %i", effect, entity, info.i_Applicant);
+    #endif
+
     info.Destroy();
 }
 
@@ -326,13 +382,74 @@ public any Native_CF_HasStatusEffect(Handle plugin, int numParams)
 public any Native_CF_ApplyStatusEffect(Handle plugin, int numParams)
 {
     int entity = GetNativeCell(1);
+
+    if (IsValidClient(entity) && (!IsPlayerAlive(entity) || GetClientTeam(entity) < 2 || GetClientTeam(entity) > 3))
+        return false;
+
     char effect[255];
     GetNativeString(2, effect, 255);
+
     float duration = GetNativeCell(3);
     int applicant = GetNativeCell(4);
     float activeValue = GetNativeCell(5);
     bool force = GetNativeCell(6);
     bool replace = GetNativeCell(7);
+
+    int efSlot = CFSE_GetEffectSlot(effect);
+    if (efSlot < 0)
+        return false;
+
+    if (!IsValidClient(entity) && !g_StatusTemplates[efSlot].allow_entities)
+        return false;
+
+    if (CF_HasStatusEffect(entity, effect) && !replace)
+        return false;
+
+    bool allow = true;
+    Action event;
+    Call_StartForward(g_OnStatusEffectApplied_Pre);
+
+    Call_PushCell(entity);
+    Call_PushString(effect);
+    Call_PushCell(applicant);
+    Call_PushCellRef(allow);
+
+    Call_Finish(event);
+
+    if (!allow && !force)
+        return false;
+
+    if (CF_HasStatusEffect(entity, effect) && replace)
+        CF_RemoveStatusEffect(entity, effect);
+
+    if (g_ActiveEffectNames[entity] == null)
+        g_ActiveEffectNames[entity] = CreateArray(128);
+
+    PushArrayString(g_ActiveEffectNames[entity], effect);
+
+    if (g_ActiveEffectStats[entity] == null)
+        g_ActiveEffectStats[entity] = CreateArray(64);
+
+    CFStatusEffect eff = new CFStatusEffect();
+    eff.i_Owner = entity;
+    eff.i_Applicant = applicant;
+    DoNotCallActiveValueForwards = true;
+    eff.f_ActiveValue = activeValue;
+    DoNotCallActiveValueForwards = false;
+    if (duration > 0.0)
+        eff.f_EndTime = GetGameTime() + duration;
+    
+    PushArrayCell(g_ActiveEffectStats[entity], eff.index);
+
+    Call_StartForward(g_OnStatusEffectApplied_Post);
+
+    Call_PushCell(entity);
+    Call_PushString(effect);
+    Call_PushCell(applicant);
+
+    Call_Finish();
+
+    return true;
 }
 
 public Native_CF_RemoveStatusEffect(Handle plugin, int numParams)
@@ -461,6 +578,7 @@ public any Native_CF_SetStatusEffectActiveValue(Handle plugin, int numParams)
     if (eff.index == -1)
         return 0;
 
+    s_CurrentChange = effect;
     eff.f_ActiveValue = GetNativeCell(3);
 
     return 0;
@@ -520,4 +638,25 @@ public any Native_CF_SetStatusEffectEndTime(Handle plugin, int numParams)
     eff.f_EndTime = GetNativeCell(3);
 
     return 0;
+}
+
+void CFSE_ManageEffectDurations()
+{
+    for (int i = 0; i < 2049; i++)
+    {
+        if (g_ActiveEffectNames[i] == null)
+            continue;
+
+        for (int j = 0; j < GetArraySize(g_ActiveEffectNames[i]) && g_ActiveEffectNames[i] != null; j++)
+        {
+            char name[255];
+            GetArrayString(g_ActiveEffectNames[i], j, name, 255);
+
+            CFStatusEffect eff = CFSE_GetStatusEffect(i, name);
+            if (eff.f_EndTime > 0.0 && GetGameTime() >= eff.f_EndTime)
+            {
+                CFSE_RemoveEffectFromEntity(i, name);
+            }
+        }
+    }
 }

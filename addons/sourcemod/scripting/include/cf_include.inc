@@ -2236,10 +2236,15 @@ native bool CF_HasStatusEffect(int entity, char[] effect);
  * @param duration		The duration of the status effect. <= 0.0: infinite.
  * @param applicant		The player/entity who applied the status effect.
  * @param activeValue	Active Value to assign to the status effect once it is applied. See CF_GetStatusEffectActiveValue for an explanation of what the Active Value is, and how it is meant to be used.
- * @param forced		If true: ignore any attempt by the CF_OnStatusEffectApplied forward to block it.
+ * @param forced		If true: ignore any attempt by the CF_OnStatusEffectApplied_Pre forward to block it.
  * @param replace		If true, and the status effect already exists: remove it, then apply this new version.
  * 
- * @return		True if the status effect was successfully applied, false if it was blocked by CF_OnStatusEffectApplied, doesn't exist, or the target was a non-player entity and the status effect only allows players.
+ * @return		True if the status effect was successfully applied, false otherwise. Instances which will return false include:
+ * 					 • A plugin blocked it via the CF_OnStatusEffectApplied_Pre forward.
+ * 					 • The status effect doesn't exist.
+ * 					 • The target was a non-player entity, and the status effect is configured to only allow players.
+ * 					 • The target is a player, but they are dead/spectating.
+ * 					 • The status effect already exists on the given entity, and "replace" was set to false.
  */
 native bool CF_ApplyStatusEffect(int entity, char[] effect, float duration = 0.0, int applicant = -1, float activeValue = 0.0, bool forced = false, bool replace = false);
 
@@ -2382,17 +2387,27 @@ native float CF_GetStatusEffectEndTime(int entity, char[] effect);
 native void CF_SetStatusEffectEndTime(int entity, char[] effect, float endTime);
 
 /**
- * Called when a custom status effect is applied.
+ * Called before a custom status effect is applied.
  * This is only called for CUSTOM status effects, defined in the "status_effects" sections of individual character configs. Look at Kholdroz's CFG for an example.
  * 
- * @param entity		The entity to which the status effect was applied.
- * @param effect		The status effect which was applied.
+ * @param entity		The entity to which the status effect will be applied.
+ * @param effect		The status effect which will be applied.
  * @param applicant		The entity/client responsible for applying the effect.
  * @param result		Setting this to false and returning Plugin_Changed will prevent the status effect from being applied.
  * 
  * @return		Plugin_Continue if you did not change the result parameter, otherwise return Plugin_Changed.
  */
-forward Action CF_OnStatusEffectApplied(int entity, char[] effect, int applicant, bool &result);
+forward Action CF_OnStatusEffectApplied_Pre(int entity, char[] effect, int applicant, bool &result);
+
+/**
+ * Called after a custom status effect is applied.
+ * This is only called for CUSTOM status effects, defined in the "status_effects" sections of individual character configs. Look at Kholdroz's CFG for an example.
+ * 
+ * @param entity		The entity to which the status effect was applied.
+ * @param effect		The status effect which was applied.
+ * @param applicant		The entity/client responsible for applying the effect.
+ */
+forward void CF_OnStatusEffectApplied_Post(int entity, char[] effect, int applicant);
 
 /**
  * Called when a custom status effect is removed.
@@ -2403,3 +2418,31 @@ forward Action CF_OnStatusEffectApplied(int entity, char[] effect, int applicant
  * @param applicant		The entity/client which originally applied the effect.
  */
 forward void CF_OnStatusEffectRemoved(int entity, char[] effect, int applicant);
+
+/**
+ * Called before a status effect's "Active Value" is changed.
+ * See CF_GetStatusEffectActiveValue for an explanation of what the Active Value is, and how it is meant to be used.
+ * 
+ * @param entity		The entity with the status effect.
+ * @param effect		The status effect whose Active Value is about to be changed.
+ * @param applicant		The entity responsible for applying the status effect.
+ * @param currentValue	The status effect's current Active Value.
+ * @param newValue		The number to which the Active Value will be changed. This can be modified.
+ * @param result		Set to false to prevent the Active Value from being changed.
+ * 
+ * @return		Plugin_Continue if you did not change newValue or result, otherwise return Plugin_Changed.
+ */
+forward Action CF_OnStatusEffectActiveValueChanged_Pre(int entity, char[] effect, int applicant, float currentValue, float &newValue, bool &result);
+
+/**
+ * Called after a status effect's "Active Value" is changed.
+ * See CF_GetStatusEffectActiveValue for an explanation of what the Active Value is, and how it is meant to be used.
+ * 
+ * @param entity		The entity with the status effect.
+ * @param effect		The status effect whose Active Value was changed.
+ * @param applicant		The entity responsible for applying the status effect.
+ * @param newValue		The status effect's new Active Value.
+ * 
+ * @return		Plugin_Continue if you did not change newValue or result, otherwise return Plugin_Changed.
+ */
+forward void CF_OnStatusEffectActiveValueChanged_Post(int entity, char[] effect, int applicant, float newValue);
