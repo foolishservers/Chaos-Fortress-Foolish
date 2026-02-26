@@ -1502,6 +1502,8 @@ public void CFC_OnEntityDestroyed(int entity)
  	delete CF_Characters_Names;
  	CF_Characters_Names = CreateArray(255);
  	
+	CFSE_ClearStatusEffects();
+
  	FoundEnabled = CF_CheckPack("characters.Enabled Character Packs", false);
  	CF_CheckPack("characters.Download Character Packs", true);
 	CF_LoadCharacterPack("Admin", false);
@@ -1700,6 +1702,8 @@ void CF_LoadSpecificCharacter(char path[255], bool JustDownload, bool admin = fa
  	}
  
  	CF_ManageCharacterFiles(Character);
+	CFSE_LoadStatusEffectsFromCharacter(Character);
+
  	DeleteCfg(Character);
  }
  
@@ -3330,6 +3334,7 @@ public void CFC_NoLongerNeedsHelp(int client)
  	CFC_DeleteParticles(client, true);
  	CFA_RemoveAnimator(client);
 	CF_RemoveAllSpeedModifiers(client, false);
+	CFSE_RemoveAllEffectsFromEntity(client);
 }
  
 public void CF_RemoveAllSpeedModifiers(int client, bool resupply)

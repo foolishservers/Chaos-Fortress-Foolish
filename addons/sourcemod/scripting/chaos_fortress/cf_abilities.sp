@@ -147,6 +147,17 @@ public void SetHeadshotIcon(int effect)
 		miniCritHit = true;
 	else
 		critHit = true;
+
+	RequestFrame(ClearHeadshotIcon, effect);
+}
+
+public void ClearHeadshotIcon(int effect)
+{
+	headshotKill = false;
+	if (effect < 2)
+		miniCritHit = false;
+	else
+		critHit = false;
 }
 
 Handle g_hSDKWorldSpaceCenter;
@@ -401,6 +412,8 @@ public void CFA_StockLogic(int client, CFAbility ability, CF_AbilityType type)
 
 public Action CFA_HUDTimer(Handle timer)
 {
+	CFSE_ManageEffectDurations();
+	
 	int rState = CF_GetRoundState();
 	
 	for (int client = 1; client <= MaxClients; client++)

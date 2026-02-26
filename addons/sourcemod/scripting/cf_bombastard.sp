@@ -73,6 +73,8 @@ bool b_TripEnabled[MAXPLAYERS + 1] = { false, ... };
 float f_TripRange[MAXPLAYERS + 1] = { 0.0, ... };
 float f_TripMinRange[MAXPLAYERS + 1] = { 0.0, ... };
 float f_TripArmTime[MAXPLAYERS + 1] = { 0.0, ... };
+float f_TripAutoMult_Damage[MAXPLAYERS + 1] = { 0.0, ... };
+float f_TripAutoMult_Radius[MAXPLAYERS + 1] = { 0.0, ... };
 float f_TripArmedAt[2049] = { 0.0, ... };
 
 ArrayList g_TripMines[MAXPLAYERS + 1] = { null, ... };
@@ -83,6 +85,8 @@ public void Trip_Enable(int client)
 	f_TripRange[client] = CF_GetArgF(client, BOMBASTARD, TRIP, "range", 250.0);
 	f_TripMinRange[client] = CF_GetArgF(client, BOMBASTARD, TRIP, "min_range", 60.0);
 	f_TripArmTime[client] = CF_GetArgF(client, BOMBASTARD, TRIP, "arm_time", 0.8);
+	f_TripAutoMult_Damage[client] = CF_GetArgF(client, BOMBASTARD, TRIP, "damage_multiplier", 2.0);
+	f_TripAutoMult_Radius[client] = CF_GetArgF(client, BOMBASTARD, TRIP, "radius_multiplier", 1.0);
 
 	b_TripEnabled[client] = true;
 }
@@ -216,8 +220,8 @@ public void Trip_ConnectToOtherMines(int client, int mine, float gt)
 
 public void Trip_DetonateMine(int client, int mine, float pos[3], float gt)
 {
-	float damage = GetEntPropFloat(mine, Prop_Send, "m_flDamage");
-	float radius = GetEntPropFloat(mine, Prop_Send, "m_DmgRadius");
+	float damage = GetEntPropFloat(mine, Prop_Send, "m_flDamage") * f_TripAutoMult_Damage[client];
+	float radius = GetEntPropFloat(mine, Prop_Send, "m_DmgRadius") * f_TripAutoMult_Radius[client];
 	int weapon = GetEntPropEnt(mine, Prop_Send, "m_hOriginalLauncher");
 
 	CF_GenericAOEDamage(client, mine, (IsValidEntity(weapon) ? weapon : -1), damage, DMG_BLAST|DMG_ALWAYSGIB, radius, pos, radius * 0.65, 0.4);

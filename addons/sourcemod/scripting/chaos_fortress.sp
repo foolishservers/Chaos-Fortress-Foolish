@@ -6,6 +6,7 @@
 //#define DEBUG_GAMERULES
 //#define DEBUG_SOUNDS
 //#define USE_PREVIEWS
+#define DEBUG_STATUS_EFFECTS
 //#define TESTING
 
 //	- MANDATORY TO-DO LIST (these MUST be done before the initial release):
@@ -110,6 +111,7 @@ public void OnMapEnd()
 	CFC_MapEnd();
 	CFB_MapEnd();
 	CFW_MapChange();
+	CFSE_ClearStatusEffects();
 
 	ConfigMap rules = new ConfigMap("data/chaos_fortress/game_rules.cfg");
 	if (rules != null)
