@@ -7,8 +7,8 @@ public void CFSE_MakeForwards()
 
     g_OnStatusEffectRemoved = new GlobalForward("CF_OnStatusEffectRemoved", ET_Ignore, Param_Cell, Param_String, Param_Cell);
 
-    g_OnStatusEffectActiveValueChanged_Pre = new GlobalForward("g_OnStatusEffectActiveValueChanged_Pre", ET_Event, Param_Cell, Param_String, Param_Cell, Param_Float, Param_FloatByRef, Param_CellByRef);
-    g_OnStatusEffectActiveValueChanged_Post = new GlobalForward("g_OnStatusEffectActiveValueChanged_Post", ET_Ignore, Param_Cell, Param_String, Param_Cell, Param_Float);
+    g_OnStatusEffectActiveValueChanged_Pre = new GlobalForward("CF_OnStatusEffectActiveValueChanged_Pre", ET_Event, Param_Cell, Param_String, Param_Cell, Param_Float, Param_FloatByRef, Param_CellByRef);
+    g_OnStatusEffectActiveValueChanged_Post = new GlobalForward("CF_OnStatusEffectActiveValueChanged_Post", ET_Ignore, Param_Cell, Param_String, Param_Cell, Param_Float);
 }
 
 public void CFSE_MakeNatives()

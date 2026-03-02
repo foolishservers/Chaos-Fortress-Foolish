@@ -50,7 +50,114 @@ public void OnPluginStart()
 {
 }
 
+#define STATUS_CRYO_BUILDUP		"Cryo Buildup"
+#define STATUS_FROZEN			"Frozen"
+
 bool b_IceDamage[MAXPLAYERS + 1] = { false, ... };
+
+float f_ImmuneToCryoBuildupUntil[2049] = { 0.0, ... };
+Handle g_CryoDecayTimer[2049] = { null, ... };
+
+public void Cryo_ApplyBuildup(int victim, int attacker, float amt)
+{	
+	//If the victim currently or recently has/had the Frozen debuff: do not apply any Cryo Buildup.
+	if (CF_HasStatusEffect(victim, STATUS_FROZEN) || GetGameTime() < f_ImmuneToCryoBuildupUntil[victim])
+		return;
+
+	//The victim already has some Cryo Buildup; set the debuff's applicant to the attacker, then increase the buildup amount.
+	if (CF_HasStatusEffect(victim, STATUS_CRYO_BUILDUP))
+	{
+		CF_SetStatusEffectApplicant(victim, STATUS_CRYO_BUILDUP, attacker);
+		CF_SetStatusEffectActiveValue(victim, STATUS_CRYO_BUILDUP, CF_GetStatusEffectActiveValue(victim, STATUS_CRYO_BUILDUP) + amt);
+
+		//If CF_OnStatusEffectActiveValueChanged_Post does NOT detect that we went above 100% Cryo Buildup: reset the decay timer.
+		if (CF_HasStatusEffect(victim, STATUS_CRYO_BUILDUP))
+			Cryo_ResetDecayTimer(victim);
+	}
+	else	//The victim does not already have Cryo Buildup; apply it and start the decay timer.
+	{
+		CF_ApplyStatusEffect(victim, STATUS_CRYO_BUILDUP, _, attacker, amt);
+		Cryo_ResetDecayTimer(victim);
+	}
+}
+
+public void Cryo_ResetDecayTimer(int victim)
+{
+	Cryo_ClearDecayTimer(victim);
+	Cryo_StartDecayTimer(victim, CF_GetStatusEffectArgF(STATUS_CRYO_BUILDUP, "duration", 3.0));
+}
+
+public void Cryo_StartDecayTimer(int victim, float delay)
+{
+	DataPack pack = new DataPack();
+	g_CryoDecayTimer[victim] = CreateDataTimer(delay, Cryo_Decay, pack, TIMER_FLAG_NO_MAPCHANGE);
+	WritePackCell(pack, EntIndexToEntRef(victim));
+	WritePackCell(pack, victim);
+}
+
+public Action Cryo_Decay(Handle timer, DataPack pack)
+{
+	ResetPack(pack);
+	int victim = EntRefToEntIndex(ReadPackCell(pack));
+	int cell = ReadPackCell(pack);
+
+	g_CryoDecayTimer[cell] = null;
+
+	if (IsValidEntity(victim) && CF_HasStatusEffect(victim, STATUS_CRYO_BUILDUP))
+	{
+		CF_SetStatusEffectActiveValue(victim, STATUS_CRYO_BUILDUP, CF_GetStatusEffectActiveValue(victim, STATUS_CRYO_BUILDUP) - CF_GetStatusEffectArgF(STATUS_CRYO_BUILDUP, "decay_rate", 0.05));
+		if (CF_GetStatusEffectActiveValue(victim, STATUS_CRYO_BUILDUP) <= 0.0)
+			CF_RemoveStatusEffect(victim, STATUS_CRYO_BUILDUP);
+		else
+			Cryo_StartDecayTimer(victim, 0.1);
+	}
+
+	return Plugin_Continue;
+}
+
+public void Cryo_ClearDecayTimer(int entity)
+{
+	delete g_CryoDecayTimer[entity];
+	g_CryoDecayTimer[entity] = null;
+}
+
+//This forward is called whenever a status effect's "Active Value" changes.
+//Here, we use it to detect when the Active Value of Cryo Buildup has been changed.
+//If we detect that it has reached 100%: we remove the Cryo Buildup status effect and apply the Frozen status effect.
+public void CF_OnStatusEffectActiveValueChanged_Post(int entity, char[] effect, int applicant, float newValue)
+{
+	CPrintToChat(applicant, "Cryo Buildup on entity %i is %.2f", entity, newValue);
+
+	if (StrEqual(effect, STATUS_CRYO_BUILDUP) && newValue >= 1.0)
+	{
+		CPrintToChat(applicant, "{cyan}APPLYING FROZEN!");
+
+		CF_RemoveStatusEffect(entity, STATUS_CRYO_BUILDUP);
+		CF_ApplyStatusEffect(entity, STATUS_FROZEN, CF_GetStatusEffectArgF(STATUS_FROZEN, "duration", 6.0), applicant);
+		Cryo_ClearDecayTimer(entity);
+	}
+}
+
+//This forward is called whenever a status effect is applied.
+//Here, we use it to detect when the Frozen status effect is applied, so that we can start VFX, deal damage, apply debuff conditions, etc.
+public void CF_OnStatusEffectApplied_Post(int entity, char[] effect, int applicant)
+{
+	if (StrEqual(effect, STATUS_FROZEN))
+	{
+		CPrintToChat(applicant, "{green}Entity %i is now Frozen.", entity);
+	}
+}
+
+//This forward is called whenever a status effect is removed.
+//Here, we use it to terminate VFX, as well as to give a window of immunity to Cryo Buildup to make it fairer to fight against.
+public void CF_OnStatusEffectRemoved(int entity, char[] effect, int applicant)
+{
+	if (StrEqual(effect, STATUS_FROZEN))
+	{
+		CPrintToChat(applicant, "{unusual}Entity %i is no longer Frozen.", entity);
+		f_ImmuneToCryoBuildupUntil[entity] = GetGameTime() + CF_GetStatusEffectArgF(STATUS_FROZEN, "immunity_time", 3.0);
+	}
+}
 
 float f_ABWidth[MAXPLAYERS + 1] = { 0.0, ... };
 float f_ABRange[MAXPLAYERS + 1] = { 0.0, ... };
@@ -62,6 +169,7 @@ float f_ABNextDrain[MAXPLAYERS + 1] = { 0.0, ... };
 float f_ABCost[MAXPLAYERS + 1] = { 0.0, ... };
 float f_ABRegenStopgap[MAXPLAYERS + 1] = { 0.0, ... };
 float f_ABAttackStopgap[MAXPLAYERS + 1] = { 0.0, ... };
+float f_ABBuildup[MAXPLAYERS + 1] = { 0.0, ... };
 
 float f_ABSlowDownMult[2049] = { 0.0, ... };
 
@@ -92,6 +200,7 @@ public void AB_Fire(int client, char abilityName[255])
 	f_ABCost[client] = CF_GetArgF(client, KHOLDROZ, abilityName, "cost", 5.0);
 	f_ABRegenStopgap[client] = CF_GetArgF(client, KHOLDROZ, abilityName, "regen_stopgap", 3.0);
 	f_ABAttackStopgap[client] = CF_GetArgF(client, KHOLDROZ, abilityName, "attack_stopgap", 1.2);
+	f_ABBuildup[client] = CF_GetArgF(client, KHOLDROZ, abilityName, "cryo_buildup", 0.06);
 
 	CF_FireGenericLaser(client, startPos, ang, f_ABWidth[client], f_ABRange[client], f_ABDamage[client], DMG_ENERGYBEAM, AB_GetWeapon(client), client, KHOLDROZ, _, AB_OnHit, AB_DrawLaser);
 	b_IceDamage[client] = false;
@@ -111,7 +220,7 @@ public void AB_Fire(int client, char abilityName[255])
 public void AB_OnHit(int victim, int attacker)
 {
 	b_IceDamage[attacker] = true;
-	//TODO: CRYO BUILDUP
+	Cryo_ApplyBuildup(victim, attacker, f_ABBuildup[attacker]);
 }
 
 public void AB_DrawLaser(int client, float startPos[3], float endPos[3], float ang[3], float width)
