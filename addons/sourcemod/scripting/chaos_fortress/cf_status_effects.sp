@@ -246,6 +246,30 @@ public void CFSE_ClearStatusEffects()
         CFSE_RemoveAllEffectsFromEntity(i);
 }
 
+void CFSE_ApplyStatusToGroup(char[] status, TFTeam team, int applicant, float duration, bool actuallyRemovingItNotApplyingIt = false, float acVal = 0.0)
+{
+    for (int i = 1; i <= MaxClients; i++)
+    {
+        if (IsValidMulti(i, true, true, team != TFTeam_Unassigned, team))
+        {
+            if (actuallyRemovingItNotApplyingIt)
+                CF_RemoveStatusEffect(i, status);
+            else
+                CF_ApplyStatusEffect(i, status, duration, applicant, acVal, true, true);
+
+            CFSE_TellAdmin(i, applicant, actuallyRemovingItNotApplyingIt, status, duration, acVal);
+        }
+    }
+}
+
+void CFSE_TellAdmin(int target, int admin, bool removed, char[] status, float duration, float acVal)
+{
+    if (removed)
+        CPrintToChat(admin, "{indigo}[Chaos Fortress] {default}Removed {vintage}%s{default} from {yellow}%N{default}.", status, target);
+    else
+        CPrintToChat(admin, "{indigo}[Chaos Fortress] {default}Applied {vintage}%s{default} to {yellow}%N{default} for {orange}%.2f second(s){default}, with an active value of {orange}%.2f{default}.", status, target, duration, acVal);
+}
+
 //Pass a valid entity to search for the effect in the given entity's list of active effects, otherwise it searches for the effect in the list of preloaded templates.
 int CFSE_GetEffectSlot(char[] effect, int entity = -1)
 {
@@ -442,9 +466,9 @@ public any Native_CF_ApplyStatusEffect(Handle plugin, int numParams)
     CFStatusEffect eff = new CFStatusEffect();
     eff.i_Owner = entity;
     eff.i_Applicant = applicant;
-    DoNotCallActiveValueForwards = true;
+    //DoNotCallActiveValueForwards = true;
     eff.f_ActiveValue = activeValue;
-    DoNotCallActiveValueForwards = false;
+    //DoNotCallActiveValueForwards = false;
     if (duration > 0.0)
         eff.f_EndTime = GetGameTime() + duration;
     

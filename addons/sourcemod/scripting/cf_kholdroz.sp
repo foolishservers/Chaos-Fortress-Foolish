@@ -79,6 +79,7 @@ public void OnPluginStart()
 #define STATUS_FROZEN			"Frozen"
 
 bool b_IceDamage[MAXPLAYERS + 1] = { false, ... };
+bool b_TakingDamageFromFreezeBurst[2049] = { false, ... };
 
 int i_FrozenAura[2049] = { -1, ... };
 int i_ColdSnapSlot[2049] = { 0, ... };
@@ -171,10 +172,12 @@ public void CF_OnStatusEffectApplied_Post(int entity, char[] effect, int applica
 {
 	if (StrEqual(effect, STATUS_FROZEN))
 	{
+		b_TakingDamageFromFreezeBurst[entity] = true;
+
 		if (IsValidClient(entity))
 		{
 			i_FrozenAura[entity] = EntIndexToEntRef(CF_AttachParticle(entity, PARTICLE_FROZEN_AURA, "root"));
-			SDKHooks_TakeDamage(entity, applicant, applicant, CF_GetStatusEffectArgF(STATUS_FROZEN, "burst_damage", 30.0));
+			SDKHooks_TakeDamage(entity, applicant, applicant, CF_GetStatusEffectArgF(STATUS_FROZEN, "burst_damage", 30.0), DMG_PREVENT_PHYSICS_FORCE);
 
 			float speedPenalty = 1.0 - CF_GetStatusEffectArgF(STATUS_FROZEN, "speed_penalty", 0.25);
 			if (speedPenalty != 1.0)
@@ -183,8 +186,10 @@ public void CF_OnStatusEffectApplied_Post(int entity, char[] effect, int applica
 		else
 		{
 			i_FrozenAura[entity] = EntIndexToEntRef(AttachParticleToEntity(entity, PARTICLE_FROZEN_AURA, "root"));
-			SDKHooks_TakeDamage(entity, applicant, applicant, CF_GetStatusEffectArgF(STATUS_FROZEN, "burst_damage_non_player", 60.0));
+			SDKHooks_TakeDamage(entity, applicant, applicant, CF_GetStatusEffectArgF(STATUS_FROZEN, "burst_damage_non_player", 60.0), DMG_PREVENT_PHYSICS_FORCE);
 		}
+
+		b_TakingDamageFromFreezeBurst[entity] = false;
 
 		float pos[3];
 		GetEntPropVector(entity, Prop_Data, "m_vecAbsOrigin", pos);
@@ -233,7 +238,7 @@ public Action CF_OnTakeDamageAlive_Bonus(int victim, int &attacker, int &inflict
 
 	if (CF_HasStatusEffect(victim, STATUS_FROZEN))
 	{
-		bool doMult = true;
+		bool doMult = !b_TakingDamageFromFreezeBurst[victim];
 
 		if (IsValidClient(attacker) && !b_IceDamage[attacker] && IsValidEntity(weapon))
 		{
