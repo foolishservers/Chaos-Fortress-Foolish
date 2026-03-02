@@ -310,6 +310,7 @@ public Action TF2_CalcIsAttackCritical(int client, int weapon, char[]weaponname,
 
 	f_StrikeSwingTime[client] = GetGameTime() + 0.6;	//This is 0.6 and the timer is 0.5 on purpose
 	CreateTimer(0.5, Strike_UnblockWeaponSwitch, GetClientUserId(client), TIMER_FLAG_NO_MAPCHANGE);
+	SetForceButtonState(client, false, IN_ATTACK);
 
 	return Plugin_Continue;
 }
@@ -319,7 +320,6 @@ public Action Strike_UnblockWeaponSwitch(Handle timer, int id)
 	int client = GetClientOfUserId(id);
 	if (IsValidMulti(client) && GetGameTime() < f_StrikeSwingTime[client])
 	{
-		SetForceButtonState(client, false, IN_ATTACK);
 		SDKUnhook(client, SDKHook_WeaponCanSwitchTo, Strike_BlockWeaponSwitch);
 		f_StrikeSwingTime[client] = 0.0;
 	}

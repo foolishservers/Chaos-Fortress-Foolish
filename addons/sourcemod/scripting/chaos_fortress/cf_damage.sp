@@ -232,7 +232,10 @@ public void CFDMG_CalculateDMGFromCustAtts(int victim, int attacker, int inflict
 
 				if (dist > falloffStart)
 				{
-					damage *= 1.0 - (((dist - falloffStart) / (falloffEnd - falloffStart)) * falloffMax);
+					if (dist >= falloffEnd)
+						damage *= (1.0 - falloffMax);
+					else
+						damage *= 1.0 - (((dist - falloffStart) / (falloffEnd - falloffStart)) * falloffMax);
 				}
 			}
 		}
