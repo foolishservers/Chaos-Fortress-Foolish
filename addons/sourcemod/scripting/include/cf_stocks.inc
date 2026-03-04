@@ -3794,7 +3794,7 @@ public bool TraceEntityEnumerator_EnumerateTriggers(int entity, int client)
 	return true;
 }
 
-stock bool IsAProjectile(int entity, bool includeNPCs = true)
+stock bool IsAProjectile(int entity)
 {
 	if (!IsValidEntity(entity))
 		return false;

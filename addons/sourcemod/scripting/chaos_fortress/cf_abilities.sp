@@ -8,7 +8,7 @@ bool b_UseHUD[MAXPLAYERS + 1] = { false, ... };
 bool b_IsFakeHealthKit[2049] = { false, ... };
 bool b_IsMedigunShield[2049] = { false, ... };
 
-bool critHit, miniCritHit, headshotKill;
+bool critHit, miniCritHit, headshotKill, arrowHeadshotKill;
 
 GlobalForward g_OnAbility;
 GlobalForward g_OnUltUsed;
@@ -140,8 +140,9 @@ public void CFA_MakeNatives()
 	CreateNative("CF_GetResourceRegenInterval", Native_CF_GetResourceRegenInterval);
 }
 
-public void SetHeadshotIcon(int effect) 
-{ 
+public void SetHeadshotIcon(int effect, bool wasArrow) 
+{
+	arrowHeadshotKill = wasArrow;
 	headshotKill = true;
 	if (effect < 2)
 		miniCritHit = true;
@@ -154,6 +155,7 @@ public void SetHeadshotIcon(int effect)
 public void ClearHeadshotIcon(int effect)
 {
 	headshotKill = false;
+	arrowHeadshotKill = false;
 	if (effect < 2)
 		miniCritHit = false;
 	else
@@ -4149,6 +4151,7 @@ public Native_CF_FireGenericBullet(Handle plugin, int numParams)
 		headshotKill = false;
 		miniCritHit = false;
 		critHit = false;
+		arrowHeadshotKill = false;
 	}
 
 	delete victims;
@@ -4244,8 +4247,8 @@ public Action CF_OnPlayerKilled_Pre(int &victim, int &inflictor, int &attacker, 
 
 	if (headshotKill)
 	{
-		strcopy(console, sizeof(console), "headshot");
-		strcopy(weapon, sizeof(weapon), "headshot");
+		strcopy(console, sizeof(console), arrowHeadshotKill ? "huntsman_headshot" : "headshot");
+		strcopy(weapon, sizeof(weapon), arrowHeadshotKill ? "huntsman_headshot" : "headshot");
 		returnVal = Plugin_Changed;
 	}
 
@@ -4257,6 +4260,7 @@ public Action CF_OnPlayerKilled_Pre(int &victim, int &inflictor, int &attacker, 
 	headshotKill = false;
 	critHit = false;
 	miniCritHit = false;
+	arrowHeadshotKill = false;
 
 	return returnVal;
 }

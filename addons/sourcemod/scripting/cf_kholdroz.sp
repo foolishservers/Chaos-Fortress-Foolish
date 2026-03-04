@@ -7,6 +7,7 @@
 
 #define KHOLDROZ		"cf_kholdroz"
 #define BEAM			"kholdroz_aurora_beam"
+#define BOLT			"kholdroz_frostbolt"
 
 #define SPR_SNOW_TRAIL			"materials/effects/softglow.vmt"
 #define SPR_SNOWFLAKE			"materials/chaos_fortress/sprites/snowflake.vmt"//"materials/effects/softglow.vmt"
