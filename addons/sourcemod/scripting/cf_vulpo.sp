@@ -3,6 +3,7 @@
 #include <sdkhooks>
 #include <cf_stocks>
 #include <cf_include>
+#include <dhooks>
 #include <tf2utils>
 #tryinclude <fakeparticles>
 
@@ -31,6 +32,8 @@ static const char BotClassNames[][] =
 char PluginName[255];
 int BeamSprite;
 int HaloSprite;
+
+Handle SDKWeaponBaseEquip;
 
 Handle AmpBuffTimer[MAXPLAYERS+1];
 int AmpBuffEntRef[MAXPLAYERS+1];
@@ -68,6 +71,25 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 
 public void OnPluginStart()
 {
+	GameData gamedata = new GameData("chaos_fortress");
+	if (!gamedata)
+		SetFailState("Failed to load gamedata (chaos_fortress.txt)");
+	
+	StartPrepSDKCall(SDKCall_Entity);
+	PrepSDKCall_SetFromConf(gamedata, SDKConf_Signature, "CTFWeaponBase::Equip");
+	PrepSDKCall_AddParameter(SDKType_CBasePlayer, SDKPass_Pointer);
+	SDKWeaponBaseEquip = EndPrepSDKCall();
+	
+	DynamicDetour dtWrenchEquip = DynamicDetour.FromConf(gamedata, "CTFWrench::Equip");
+	if (dtWrenchEquip)
+		dtWrenchEquip.Enable(Hook_Pre, OnWrenchEquipPre);
+	
+	DynamicDetour dtWrenchDetach = DynamicDetour.FromConf(gamedata, "CTFWrench::Detach");
+	if (dtWrenchDetach)
+		dtWrenchDetach.Enable(Hook_Pre, OnWrenchDetachPre);
+	
+	delete gamedata;
+	
 	HookEvent("player_builtobject", OnBuildObject);
 }
 
@@ -372,6 +394,23 @@ Action OnShortCircuit(int entity)
 
 	RemoveEntity(entity);
 	return Plugin_Stop;
+}
+
+MRESReturn OnWrenchEquipPre(int wrench, DHookParam param) {
+	if (param.IsNull(1))
+		return MRES_Ignored;
+	
+	int owner = param.Get(1);
+	if (0 < owner <= MaxClients) {
+		SDKCall_CTFWeaponBase_Equip(wrench, owner);
+		return MRES_Supercede;
+	}
+	
+	return MRES_Ignored;
+}
+
+MRESReturn OnWrenchDetachPre(int wrench) {
+	return MRES_Supercede;
 }
 
 void OnBuildObject(Event event, const char[] name, bool dontBroadcast)
@@ -682,6 +721,10 @@ Action Timer_MajorSteam(Handle timer, int client)
 	}
 
 	return Plugin_Stop;
+}
+
+void SDKCall_CTFWeaponBase_Equip(int wrench, int owner) {
+	SDKCall(SDKWeaponBaseEquip, wrench, owner);
 }
 
 stock void TE_Particle(const char[] Name, float origin[3]=NULL_VECTOR, float start[3]=NULL_VECTOR, float angles[3]=NULL_VECTOR, int entindex=-1, int attachtype= 0, int attachpoint=-1, bool resetParticles=true, int customcolors=0, float color1[3]=NULL_VECTOR, float color2[3]=NULL_VECTOR, int controlpoint=-1, int controlpointattachment=-1, float controlpointoffset[3]=NULL_VECTOR, float delay=0.0)
