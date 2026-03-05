@@ -7,6 +7,7 @@
 
 #define KHOLDROZ		"cf_kholdroz"
 #define BEAM			"kholdroz_aurora_beam"
+#define BOLT			"kholdroz_frostbolt"
 
 #define SPR_SNOW_TRAIL			"materials/effects/softglow.vmt"
 #define SPR_SNOWFLAKE			"materials/chaos_fortress/sprites/snowflake.vmt"//"materials/effects/softglow.vmt"
@@ -18,12 +19,29 @@
 
 #define PARTICLE_SNOW_AURA_RED		"utaunt_glitter_teamcolor_red"
 #define PARTICLE_SNOW_AURA_BLUE		"utaunt_glitter_parent_silver"
+#define PARTICLE_FROZEN_AURA		"utaunt_snowring_space_parent"
+#define PARTICLE_FROZEN_PROC		"xms_snowburst"
+#define PARTICLE_ABSOLUTE_ZERO_AURA	"utaunt_chillingmist_parent"
+#define PARTICLE_COLDSNAP_1			"xms_snowburst_child01"
+#define PARTICLE_COLDSNAP_2			"xms_snowburst_child02"
 
 #define SOUND_AB_START				")weapons/flame_thrower_airblast_rocket_redirect.wav"
 #define SOUND_AB_LOOP_1				")misc/halloween/merasmus_float.wav"
 #define SOUND_AB_LOOP_2				")npc/stalker/laser_burn.wav"
 #define SOUND_AB_LOOP_3				")npc/headcrab/headcrab_burning_loop2.wav"
 #define SOUND_AB_STOP				")weapons/flame_thrower_bb_end.wav"
+#define SOUND_FROZEN_1				")weapons/icicle_freeze_victim_01.wav"
+#define SOUND_FROZEN_2				")weapons/icicle_melt_01.wav"
+#define SOUND_UNFROZEN				")player/flame_out.wav"
+#define SOUND_ICICLE_HIT			")weapons/icicle_melt_01.wav"
+#define SOUND_COLDSNAP_1			")weapons/demo_charge_hit_flesh3.wav"
+#define SOUND_COLDSNAP_2			")weapons/breadmonster/throwable/bm_throwable_smash.wav"
+
+static char g_FrozenVulnSFX[][] = {
+	")weapons/icicle_hit_world_01.wav",
+	")weapons/icicle_hit_world_02.wav",
+	")weapons/icicle_hit_world_03.wav"
+};
 
 public void OnMapStart()
 {
@@ -44,6 +62,14 @@ public void OnMapStart()
 	PrecacheSound(SOUND_AB_LOOP_2);
 	PrecacheSound(SOUND_AB_LOOP_3);
 	PrecacheSound(SOUND_AB_STOP);
+	PrecacheSound(SOUND_FROZEN_1);
+	PrecacheSound(SOUND_FROZEN_2);
+	PrecacheSound(SOUND_UNFROZEN);
+	PrecacheSound(SOUND_ICICLE_HIT);
+	PrecacheSound(SOUND_COLDSNAP_1);
+	PrecacheSound(SOUND_COLDSNAP_2);
+
+	for (int i = 0; i < sizeof(g_FrozenVulnSFX); i++) { PrecacheSound(g_FrozenVulnSFX[i]); }
 }
 
 public void OnPluginStart()
@@ -54,8 +80,15 @@ public void OnPluginStart()
 #define STATUS_FROZEN			"Frozen"
 
 bool b_IceDamage[MAXPLAYERS + 1] = { false, ... };
+bool b_TakingDamageFromFreezeBurst[2049] = { false, ... };
+
+int i_FrozenAura[2049] = { -1, ... };
+int i_ColdSnapSlot[2049] = { 0, ... };
 
 float f_ImmuneToCryoBuildupUntil[2049] = { 0.0, ... };
+
+CF_SpeedModifier g_FrozenSpeedPenalty[MAXPLAYERS + 1] = { null, ... };
+
 Handle g_CryoDecayTimer[2049] = { null, ... };
 
 public void Cryo_ApplyBuildup(int victim, int attacker, float amt)
@@ -126,12 +159,8 @@ public void Cryo_ClearDecayTimer(int entity)
 //If we detect that it has reached 100%: we remove the Cryo Buildup status effect and apply the Frozen status effect.
 public void CF_OnStatusEffectActiveValueChanged_Post(int entity, char[] effect, int applicant, float newValue)
 {
-	CPrintToChat(applicant, "Cryo Buildup on entity %i is %.2f", entity, newValue);
-
 	if (StrEqual(effect, STATUS_CRYO_BUILDUP) && newValue >= 1.0)
 	{
-		CPrintToChat(applicant, "{cyan}APPLYING FROZEN!");
-
 		CF_RemoveStatusEffect(entity, STATUS_CRYO_BUILDUP);
 		CF_ApplyStatusEffect(entity, STATUS_FROZEN, CF_GetStatusEffectArgF(STATUS_FROZEN, "duration", 6.0), applicant);
 		Cryo_ClearDecayTimer(entity);
@@ -144,7 +173,36 @@ public void CF_OnStatusEffectApplied_Post(int entity, char[] effect, int applica
 {
 	if (StrEqual(effect, STATUS_FROZEN))
 	{
-		CPrintToChat(applicant, "{green}Entity %i is now Frozen.", entity);
+		b_TakingDamageFromFreezeBurst[entity] = true;
+
+		if (IsValidClient(entity))
+		{
+			i_FrozenAura[entity] = EntIndexToEntRef(CF_AttachParticle(entity, PARTICLE_FROZEN_AURA, "root"));
+			SDKHooks_TakeDamage(entity, applicant, applicant, CF_GetStatusEffectArgF(STATUS_FROZEN, "burst_damage", 30.0), DMG_PREVENT_PHYSICS_FORCE);
+
+			float speedPenalty = 1.0 - CF_GetStatusEffectArgF(STATUS_FROZEN, "speed_penalty", 0.25);
+			if (speedPenalty != 1.0)
+				g_FrozenSpeedPenalty[entity] = CF_ApplyTemporarySpeedChange(entity, 1, speedPenalty, 0.0, 0, 0.0, false);
+		}
+		else
+		{
+			i_FrozenAura[entity] = EntIndexToEntRef(AttachParticleToEntity(entity, PARTICLE_FROZEN_AURA, "root"));
+			SDKHooks_TakeDamage(entity, applicant, applicant, CF_GetStatusEffectArgF(STATUS_FROZEN, "burst_damage_non_player", 60.0), DMG_PREVENT_PHYSICS_FORCE);
+		}
+
+		b_TakingDamageFromFreezeBurst[entity] = false;
+
+		float pos[3];
+		GetEntPropVector(entity, Prop_Data, "m_vecAbsOrigin", pos);
+		SpawnParticle(pos, PARTICLE_FROZEN_PROC, 0.2);
+
+		EmitSoundToAll(SOUND_FROZEN_1, entity, _, 110, _, _, 90);
+		EmitSoundToAll(SOUND_FROZEN_2, entity, _, 110, _, _, 90);
+		if (IsValidClient(applicant))
+		{
+			EmitSoundToClient(applicant, SOUND_FROZEN_1);
+			EmitSoundToClient(applicant, SOUND_FROZEN_2);
+		}
 	}
 }
 
@@ -154,9 +212,100 @@ public void CF_OnStatusEffectRemoved(int entity, char[] effect, int applicant)
 {
 	if (StrEqual(effect, STATUS_FROZEN))
 	{
-		CPrintToChat(applicant, "{unusual}Entity %i is no longer Frozen.", entity);
 		f_ImmuneToCryoBuildupUntil[entity] = GetGameTime() + CF_GetStatusEffectArgF(STATUS_FROZEN, "immunity_time", 3.0);
+		EmitSoundToAll(SOUND_UNFROZEN, entity, _, 110, _, _, 80);
+
+		if (IsValidClient(entity) && g_FrozenSpeedPenalty[entity].b_Exists)
+			g_FrozenSpeedPenalty[entity].Destroy();
+
+		int particle = EntRefToEntIndex(i_FrozenAura[entity]);
+		if (IsValidEntity(particle))
+			RemoveEntity(particle);
 	}
+}
+
+public Action CF_OnCalcAttackInterval(int client, int weapon, int slot, char classname[255], float &rate)
+{
+	if (!CF_HasStatusEffect(client, STATUS_FROZEN))
+		return Plugin_Continue;
+
+	rate *= (1.0 + CF_GetStatusEffectArgF(STATUS_FROZEN, "rate_penalty", 0.2));
+	return Plugin_Changed;
+}
+
+public Action CF_OnTakeDamageAlive_Bonus(int victim, int &attacker, int &inflictor, float &damage, int &damagetype, int &weapon, float damageForce[3], float damagePosition[3], int &damagecustom)
+{
+	Action ReturnValue = Plugin_Continue;
+
+	if (CF_HasStatusEffect(victim, STATUS_FROZEN))
+	{
+		bool doMult = !b_TakingDamageFromFreezeBurst[victim];
+
+		if (IsValidClient(attacker) && !b_IceDamage[attacker] && IsValidEntity(weapon))
+		{
+			float mult = TF2CustAttr_GetFloat(weapon, "damage against frozen multiplier", 1.0);
+			if (mult != 1.0)
+			{
+				damage *= mult;
+				ReturnValue = Plugin_Changed;
+				doMult = false;
+			}
+
+			if (TF2CustAttr_GetInt(weapon, "remove frozen", 0) != 0)
+				CF_RemoveStatusEffect(victim, STATUS_FROZEN);
+
+			if (TF2CustAttr_GetInt(weapon, "cold snap fx", 0) != 0)
+			{
+				EmitSoundToAll(SOUND_COLDSNAP_1, victim, _, 110);
+				EmitSoundToAll(SOUND_COLDSNAP_2, victim, _, 110);
+				if (IsValidClient(victim))
+					PlayCritVictimSound(victim);
+
+				EmitSoundToClient(attacker, SOUND_COLDSNAP_1);
+				EmitSoundToClient(attacker, SOUND_COLDSNAP_2);
+				PlayCritSound(attacker);
+
+				float pos[3];
+				GetEntPropVector(victim, Prop_Data, "m_vecAbsOrigin", pos);
+				SpawnParticle(pos, PARTICLE_COLDSNAP_1, 0.2);
+				SpawnParticle(pos, PARTICLE_COLDSNAP_2, 0.2);
+			}
+
+			if (IsValidClient(victim))
+			{
+				i_ColdSnapSlot[attacker] = TF2CustAttr_GetInt(weapon, "cold snap ability", 0);
+				RequestFrame(ColdSnap_Reset, GetClientUserId(attacker));
+			}
+		}
+
+		if (doMult)
+		{
+			damage *= (1.0 + CF_GetStatusEffectArgF(STATUS_FROZEN, "vulnerability", 0.2));
+			ReturnValue = Plugin_Changed;
+
+			if (IsValidClient(victim))
+				EmitSoundToClient(victim, g_FrozenVulnSFX[GetRandomInt(0, sizeof(g_FrozenVulnSFX) - 1)]);
+			if (IsValidClient(attacker))
+				EmitSoundToClient(attacker, g_FrozenVulnSFX[GetRandomInt(0, sizeof(g_FrozenVulnSFX) - 1)]);
+		}
+	}
+
+	return ReturnValue;
+}
+
+public void ColdSnap_Reset(int id)
+{
+	int client = GetClientOfUserId(id);
+	if (IsValidClient(client))
+		i_ColdSnapSlot[client] = 0;
+}
+
+public void CF_OnPlayerKilled(int victim, int inflictor, int attacker, int deadRinger)
+{
+	if (deadRinger > 0 || !IsValidClient(attacker) || i_ColdSnapSlot[attacker] == 0)
+		return;
+
+	CF_DoAbilitySlot(attacker, i_ColdSnapSlot[attacker]);
 }
 
 float f_ABWidth[MAXPLAYERS + 1] = { 0.0, ... };
@@ -508,6 +657,7 @@ public void CF_OnCharacterCreated(int client)
 public void CF_OnCharacterRemoved(int client)
 {
 	AB_Terminate(client);
+	i_ColdSnapSlot[client] = 0;
 }
 
 public void CF_OnAbility(int client, char pluginName[255], char abilityName[255])

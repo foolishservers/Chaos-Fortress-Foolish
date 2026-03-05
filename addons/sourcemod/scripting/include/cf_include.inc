@@ -2446,3 +2446,22 @@ forward Action CF_OnStatusEffectActiveValueChanged_Pre(int entity, char[] effect
  * @return		Plugin_Continue if you did not change newValue or result, otherwise return Plugin_Changed.
  */
 forward void CF_OnStatusEffectActiveValueChanged_Post(int entity, char[] effect, int applicant, float newValue);
+
+/**
+ * Called by CF's internal SDKHook_TraceAttack. This is called for clients, buildings, and NPCs.
+ * NOTE: CERTAIN WEAPONS/ENTITIES DO NOT CALL TRACEATTACK!
+ * Sources which do not call TraceAttack include most (not all) projectiles, and all sources of custom damage.
+ * 
+ * @param victim			The entity which was hit. This is guaranteed to be valid.
+ * @param attacker			The entity which dealt the damage.
+ * @param inflictor			The entity which inflicted the damage. EX: if a player is hit by a huntsman arrow, this would be the huntsman arrow, and the attacker would be whoever fired the huntsman arrow.
+ * @param weapon			The weapon which inflicted the damage. Defaults to -1 in cases where no weapon was used.
+ * @param damage			The damage which will be dealt.
+ * @param damagetype		Damage bits, such as DMG_BLAST.
+ * @param ammotype			Ammo type.
+ * @param hitbox			Hitbox index.
+ * @param hitgroup			The type of hitbox which was hit, such as HITGROUP_HEAD.
+ * 
+ * @return		Plugin_Changed if you changed anything, otherwise return Plugin_Continue.
+ */
+forward Action CF_OnTraceAttack(int victim, int &attacker, int &inflictor, int weapon, float &damage, int &damagetype, int &ammotype, int hitbox, int &hitgroup);
